@@ -86,7 +86,7 @@ O sistema deve consumir a API oficial do Figma para obter os dados do arquivo.
 
 ---
 
-## RF03 — Listagem de telas principais
+## 🔹 RF03 — Listagem de telas principais
 
 O sistema deve listar as telas principais disponíveis no arquivo Figma para seleção do usuário.
 
