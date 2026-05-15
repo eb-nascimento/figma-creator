@@ -90,9 +90,9 @@ O sistema deve consumir a API oficial do Figma para obter os dados do arquivo.
 
 O sistema deve listar as telas principais disponíveis no arquivo Figma para seleção do usuário.
 
-Regras
+### Regras
 * Apenas frames principais devem ser exibidos
-Exibir:
+### Exibir:
 * nome da tela
 * ID do frame
 * nome da página do Figma
