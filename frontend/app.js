@@ -1,6 +1,10 @@
 const state = {
   fileUrl: "",
   frames: [],
+  extractedStructure: null,
+  generatingHtml: false,
+  generatedHtml: null,
+  refiningHtml: false,
   selectedFrame: null,
   selectedFrameId: null,
   selectingFrameId: null,
@@ -16,8 +20,12 @@ const elements = {
   figmaUrl: document.querySelector("#figma-url"),
   frameCount: document.querySelector("#frame-count"),
   framesList: document.querySelector("#frames-list"),
+  generateHtmlButton: document.querySelector("#generate-html-button"),
+  generatedHtml: document.querySelector("#generated-html"),
   loadFramesButton: document.querySelector("#load-frames-button"),
   logoutButton: document.querySelector("#logout-button"),
+  refinedHtml: document.querySelector("#refined-html"),
+  refineHtmlButton: document.querySelector("#refine-html-button"),
   selectedId: document.querySelector("#selected-id"),
   selectedName: document.querySelector("#selected-name"),
   selectedPage: document.querySelector("#selected-page"),
@@ -43,6 +51,18 @@ function setStructureLoading(isLoading) {
   elements.extractStructureButton.textContent = isLoading
     ? "Extraindo..."
     : "Extrair estrutura";
+}
+
+function setHtmlLoading(isLoading) {
+  state.generatingHtml = isLoading;
+  elements.generateHtmlButton.disabled = isLoading || !state.extractedStructure;
+  elements.generateHtmlButton.textContent = isLoading ? "Gerando..." : "Gerar HTML";
+}
+
+function setRefineHtmlLoading(isLoading) {
+  state.refiningHtml = isLoading;
+  elements.refineHtmlButton.disabled = isLoading || !state.generatedHtml;
+  elements.refineHtmlButton.textContent = isLoading ? "Refinando..." : "Refinar HTML";
 }
 
 async function requestJson(url, options = {}) {
@@ -133,12 +153,14 @@ function renderSelection(frame) {
 }
 
 function resetStructurePanel() {
+  state.extractedStructure = null;
   elements.structureSummary.textContent = state.selectedFrame
     ? "Estrutura ainda nao extraida"
     : "Aguardando frame";
   elements.structureJson.textContent = state.selectedFrame
     ? "Clique em Extrair estrutura para buscar a arvore do frame."
     : "Selecione um frame e extraia a estrutura.";
+  resetHtmlPanel();
 }
 
 function renderStructure(payload) {
@@ -149,6 +171,34 @@ function renderStructure(payload) {
 
   elements.structureSummary.textContent = `${payload.summary.totalNodes} nos | ${typeEntries}`;
   elements.structureJson.textContent = JSON.stringify(payload.structure, null, 2);
+  state.extractedStructure = payload.structure;
+  elements.generateHtmlButton.disabled = false;
+}
+
+function resetHtmlPanel() {
+  state.generatedHtml = null;
+  elements.generateHtmlButton.disabled = true;
+  elements.generatedHtml.textContent = state.selectedFrame
+    ? "Extraia a estrutura antes de gerar HTML."
+    : "Selecione um frame e extraia a estrutura antes de gerar HTML.";
+  resetRefinedHtmlPanel();
+}
+
+function renderGeneratedHtml(payload) {
+  state.generatedHtml = payload.html;
+  elements.generatedHtml.textContent = payload.html;
+  elements.refineHtmlButton.disabled = false;
+}
+
+function resetRefinedHtmlPanel() {
+  elements.refineHtmlButton.disabled = true;
+  elements.refinedHtml.textContent = state.generatedHtml
+    ? "Refine o HTML gerado antes de seguir para o CSS."
+    : "Gere o HTML antes de refinar.";
+}
+
+function renderRefinedHtml(payload) {
+  elements.refinedHtml.textContent = payload.html;
 }
 
 async function loadFrames(event) {
@@ -257,6 +307,63 @@ async function extractStructure() {
   }
 }
 
+async function generateHtml() {
+  if (!state.extractedStructure) {
+    setFeedback("Extraia a estrutura antes de gerar HTML.", { error: true });
+    return;
+  }
+
+  setHtmlLoading(true);
+  elements.generatedHtml.textContent = "Gerando HTML a partir da estrutura...";
+  setFeedback("Gerando HTML...");
+
+  try {
+    const payload = await requestJson("/api/generate/html", {
+      method: "POST",
+      body: JSON.stringify({
+        structure: state.extractedStructure,
+      }),
+    });
+
+    renderGeneratedHtml(payload);
+    resetRefinedHtmlPanel();
+    elements.refineHtmlButton.disabled = false;
+    setFeedback("HTML gerado com sucesso.");
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+  } finally {
+    setHtmlLoading(false);
+  }
+}
+
+async function refineHtml() {
+  if (!state.generatedHtml || !state.extractedStructure) {
+    setFeedback("Gere o HTML antes de refinar.", { error: true });
+    return;
+  }
+
+  setRefineHtmlLoading(true);
+  elements.refinedHtml.textContent = "Refinando HTML com heuristicas locais...";
+  setFeedback("Refinando HTML...");
+
+  try {
+    const payload = await requestJson("/api/generate/html/refine", {
+      method: "POST",
+      body: JSON.stringify({
+        html: state.generatedHtml,
+        structure: state.extractedStructure,
+      }),
+    });
+
+    renderRefinedHtml(payload);
+    setFeedback("HTML refinado com sucesso.");
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+  } finally {
+    setRefineHtmlLoading(false);
+  }
+}
+
 elements.connectButton.addEventListener("click", () => {
   window.location.href = "/api/auth/figma/start";
 });
@@ -276,6 +383,28 @@ elements.logoutButton.addEventListener("click", async () => {
 
 elements.extractStructureButton.addEventListener("click", extractStructure);
 elements.figmaForm.addEventListener("submit", loadFrames);
+elements.generateHtmlButton.addEventListener("click", generateHtml);
+elements.refineHtmlButton.addEventListener("click", refineHtml);
+
+document.querySelectorAll(".copy-button").forEach(button => {
+  button.addEventListener("click", async () => {
+    const targetId = button.getAttribute("data-target");
+    const targetElement = document.getElementById(targetId);
+    if (!targetElement) return;
+
+    try {
+      await navigator.clipboard.writeText(targetElement.textContent);
+      const originalText = button.textContent;
+      button.textContent = "Copiado!";
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 2000);
+    } catch (err) {
+      console.error("Falha ao copiar:", err);
+      setFeedback("Falha ao copiar para a área de transferência.", { error: true });
+    }
+  });
+});
 
 refreshAuthStatus().catch((error) => {
   setFeedback(error.message, { error: true });

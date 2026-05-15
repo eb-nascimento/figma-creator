@@ -71,9 +71,34 @@
         <section class="structure-panel" aria-labelledby="structure-title">
           <div class="section-heading">
             <h2 id="structure-title">Estrutura extraida</h2>
-            <span id="structure-summary">Aguardando frame</span>
+            <div style="display:flex; gap:12px; align-items:center;">
+              <span id="structure-summary">Aguardando frame</span>
+              <button type="button" class="copy-button secondary" data-target="structure-json" title="Copiar código completo">Copiar</button>
+            </div>
           </div>
           <pre id="structure-json" class="structure-json">Selecione um frame e extraia a estrutura.</pre>
+        </section>
+
+        <section class="structure-panel" aria-labelledby="html-title">
+          <div class="section-heading">
+            <h2 id="html-title">HTML gerado</h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button id="generate-html-button" type="button" disabled>Gerar HTML</button>
+              <button type="button" class="copy-button secondary" data-target="generated-html" title="Copiar código completo">Copiar</button>
+            </div>
+          </div>
+          <pre id="generated-html" class="structure-json">Extraia a estrutura antes de gerar HTML.</pre>
+        </section>
+
+        <section class="structure-panel" aria-labelledby="refined-html-title">
+          <div class="section-heading">
+            <h2 id="refined-html-title">HTML refinado</h2>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button id="refine-html-button" type="button" disabled>Refinar HTML</button>
+              <button type="button" class="copy-button secondary" data-target="refined-html" title="Copiar código completo">Copiar</button>
+            </div>
+          </div>
+          <pre id="refined-html" class="structure-json">Gere o HTML antes de refinar.</pre>
         </section>
       </section>
     </main>
