@@ -1,4 +1,6 @@
 const http = require("node:http");
+const fs = require("node:fs/promises");
+const path = require("node:path");
 const { loadEnv } = require("./config/env");
 const { parseCookies } = require("./services/cookies");
 const {
@@ -7,11 +9,23 @@ const {
   handleFigmaOAuthStart,
   handleFigmaOAuthStatus,
 } = require("./routes/authRoutes");
-const { handleFigmaFrames, handleFigmaImport } = require("./routes/figmaRoutes");
+const {
+  handleFigmaFrameStructure,
+  handleFigmaFrameSelection,
+  handleFigmaFrames,
+  handleFigmaImport,
+} = require("./routes/figmaRoutes");
 
 loadEnv();
 
 const PORT = Number(process.env.PORT || 3000);
+const PUBLIC_DIR = path.resolve(__dirname, "..", "frontend");
+
+const STATIC_CONTENT_TYPES = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+};
 
 function getCorsHeaders(request) {
   const origin = request.headers.origin;
@@ -40,6 +54,34 @@ function sendRedirect(response, statusCode, location, headers = {}) {
     ...headers,
   });
   response.end();
+}
+
+async function sendStaticFile(request, response, pathname) {
+  const relativePath = pathname === "/" ? "index.html" : pathname.slice(1);
+  const filePath = path.resolve(PUBLIC_DIR, relativePath);
+
+  if (!filePath.startsWith(PUBLIC_DIR + path.sep)) {
+    sendJson(request, response, 404, { error: "Arquivo nao encontrado." });
+    return true;
+  }
+
+  try {
+    const content = await fs.readFile(filePath);
+    const extension = path.extname(filePath);
+
+    response.writeHead(200, {
+      "Content-Type": STATIC_CONTENT_TYPES[extension] || "application/octet-stream",
+      ...getCorsHeaders(request),
+    });
+    response.end(content);
+    return true;
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      throw error;
+    }
+
+    return false;
+  }
 }
 
 async function readJsonBody(request) {
@@ -77,6 +119,17 @@ async function requestListener(request, response) {
   if (request.method === "GET" && requestUrl.pathname === "/health") {
     sendJson(request, response, 200, { status: "ok" });
     return;
+  }
+
+  if (
+    request.method === "GET" &&
+    ["/", "/app.js", "/styles.css"].includes(requestUrl.pathname)
+  ) {
+    const served = await sendStaticFile(request, response, requestUrl.pathname);
+
+    if (served) {
+      return;
+    }
   }
 
   if (request.method === "GET" && requestUrl.pathname === "/api/auth/figma/start") {
@@ -144,6 +197,35 @@ async function requestListener(request, response) {
     try {
       const body = await readJsonBody(request);
       const result = await handleFigmaFrames(body, requestContext);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/figma/frame") {
+    try {
+      const body = await readJsonBody(request);
+      const result = await handleFigmaFrameSelection(body, requestContext);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (
+    request.method === "POST" &&
+    requestUrl.pathname === "/api/figma/frame/structure"
+  ) {
+    try {
+      const body = await readJsonBody(request);
+      const result = await handleFigmaFrameStructure(body, requestContext);
       sendJson(request, response, 200, result);
     } catch (error) {
       sendJson(request, response, error.statusCode || 500, {

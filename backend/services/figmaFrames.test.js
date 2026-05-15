@@ -1,6 +1,10 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { attachFrameThumbnails, extractMainFrames } = require("./figmaFrames");
+const {
+  attachFrameThumbnails,
+  extractMainFrames,
+  findMainFrameById,
+} = require("./figmaFrames");
 
 test("extracts only top-level frames from Figma pages preserving document order", () => {
   const frames = extractMainFrames({
@@ -108,4 +112,27 @@ test("attaches thumbnail URLs by frame ID", () => {
       thumbnailUrl: null,
     },
   ]);
+});
+
+test("finds a main frame by ID", () => {
+  const frames = [
+    {
+      id: "1:1",
+      name: "Login",
+      pageId: "page-1",
+      pageName: "Authentication",
+      thumbnailUrl: null,
+    },
+    {
+      id: "2:1",
+      name: "Dashboard",
+      pageId: "page-2",
+      pageName: "Product",
+      thumbnailUrl: null,
+    },
+  ];
+
+  assert.deepEqual(findMainFrameById(frames, "2:1"), frames[1]);
+  assert.equal(findMainFrameById(frames, "9:9"), null);
+  assert.equal(findMainFrameById(frames, ""), null);
 });

@@ -67,3 +67,42 @@ O sistema deve listar as telas principais disponiveis no arquivo Figma para sele
 ### Resultado
 
 - Usuario consegue identificar visualmente e selecionar corretamente a tela desejada para implementacao.
+
+## RF04 - Selecao de frame
+
+O usuario deve poder selecionar uma tela principal especifica retornada pela listagem de frames.
+
+### Regras
+
+- Apenas um frame pode ser selecionado por vez.
+- A selecao deve ser enviada ao backend.
+- O backend deve validar se o `frame_id` pertence ao arquivo Figma informado.
+- O frame selecionado deve manter os metadados retornados pela RF03.
+- A selecao nao deve carregar nem processar a estrutura interna completa do frame nesta etapa.
+- A interface deve indicar carregamento enquanto a selecao esta sendo validada.
+- A interface deve evitar multiplos cliques de selecao durante a validacao.
+
+### Resultado
+
+- Frame escolhido definido como alvo para as proximas etapas de processamento.
+
+## RF05 - Extracao de estrutura de layout
+
+O sistema deve buscar a estrutura interna do frame selecionado e converter os nodes do Figma em uma arvore simplificada para processamento posterior.
+
+### Regras
+
+- A extracao deve ocorrer apenas apos a selecao de um frame valido.
+- O backend deve buscar o subtree do frame selecionado na API do Figma.
+- O backend deve validar se o `frame_id` pertence as telas principais do arquivo informado.
+- A estrutura deve preservar hierarquia, posicao e dimensoes dos nodes.
+- Nodes invisiveis devem ser ignorados.
+- A estrutura deve mapear tipos principais como frame, container, group, text, image, shape, component e node.
+- Textos devem incluir conteudo e informacoes tipograficas basicas quando disponiveis.
+- Estilos devem incluir informacoes basicas de preenchimento, borda, opacidade e raio quando disponiveis.
+- A interface deve indicar carregamento enquanto a estrutura esta sendo extraida.
+- A extracao nao deve gerar HTML ou CSS nesta etapa.
+
+### Resultado
+
+- Sistema retorna uma arvore normalizada do frame selecionado e um resumo com total de nodes e tipos encontrados.

@@ -29,7 +29,16 @@ function attachFrameThumbnails(frames, imagesByFrameId = {}) {
   }));
 }
 
+function findMainFrameById(frames, frameId) {
+  if (!frameId) {
+    return null;
+  }
+
+  return frames.find((frame) => frame.id === frameId) || null;
+}
+
 module.exports = {
   attachFrameThumbnails,
   extractMainFrames,
+  findMainFrameById,
 };

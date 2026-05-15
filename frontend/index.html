@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Figma Creator</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="topbar">
+          <div>
+            <h1 id="page-title">Figma Creator</h1>
+            <p id="auth-status">Verificando conexao com Figma...</p>
+          </div>
+          <div class="actions">
+            <button id="connect-button" type="button">Conectar com Figma</button>
+            <button id="logout-button" type="button" class="secondary" hidden>Sair</button>
+          </div>
+        </div>
+
+        <form id="figma-form" class="import-form">
+          <label for="figma-url">URL do arquivo Figma</label>
+          <div class="input-row">
+            <input
+              id="figma-url"
+              name="figma-url"
+              type="url"
+              placeholder="https://www.figma.com/design/..."
+              required
+            >
+            <button id="load-frames-button" type="submit">Carregar telas</button>
+          </div>
+        </form>
+
+        <div id="feedback" class="feedback" role="status" aria-live="polite"></div>
+
+        <section class="content-grid" aria-label="Telas do arquivo Figma">
+          <div>
+            <div class="section-heading">
+              <h2>Telas principais</h2>
+              <span id="frame-count">0 telas</span>
+            </div>
+            <div id="frames-list" class="frames-list"></div>
+          </div>
+
+          <aside class="selection-panel" aria-labelledby="selection-title">
+            <h2 id="selection-title">Frame selecionado</h2>
+            <div id="selection-empty" class="empty-state">Nenhuma tela selecionada.</div>
+            <dl id="selection-details" class="selection-details" hidden>
+              <div>
+                <dt>Nome</dt>
+                <dd id="selected-name"></dd>
+              </div>
+              <div>
+                <dt>Pagina</dt>
+                <dd id="selected-page"></dd>
+              </div>
+              <div>
+                <dt>ID</dt>
+                <dd id="selected-id"></dd>
+              </div>
+            </dl>
+            <button id="extract-structure-button" type="button" class="full-width" disabled>
+              Extrair estrutura
+            </button>
+          </aside>
+        </section>
+
+        <section class="structure-panel" aria-labelledby="structure-title">
+          <div class="section-heading">
+            <h2 id="structure-title">Estrutura extraida</h2>
+            <span id="structure-summary">Aguardando frame</span>
+          </div>
+          <pre id="structure-json" class="structure-json">Selecione um frame e extraia a estrutura.</pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

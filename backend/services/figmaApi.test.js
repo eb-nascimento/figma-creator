@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { fetchFigmaFile, fetchFigmaImages } = require("./figmaApi");
+const { fetchFigmaFile, fetchFigmaImages, fetchFigmaNodes } = require("./figmaApi");
 
 test("requires an OAuth access token", async () => {
   await assert.rejects(
@@ -92,4 +92,36 @@ test("does not request frame previews when frame list is empty", async () => {
   });
 
   assert.deepEqual(result, {});
+});
+
+test("returns Figma nodes when node request succeeds", async () => {
+  const nodes = {
+    "1:1": {
+      document: {
+        id: "1:1",
+        name: "Home",
+        type: "FRAME",
+      },
+    },
+  };
+
+  const result = await fetchFigmaNodes("FileKey123", ["1:1"], {
+    accessToken: "token",
+    fetchImpl: async (url, options) => {
+      const requestUrl = new URL(url);
+
+      assert.equal(requestUrl.origin, "https://api.figma.com");
+      assert.equal(requestUrl.pathname, "/v1/files/FileKey123/nodes");
+      assert.equal(requestUrl.searchParams.get("ids"), "1:1");
+      assert.equal(options.headers.Authorization, "Bearer token");
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ nodes }),
+      };
+    },
+  });
+
+  assert.deepEqual(result, nodes);
 });
