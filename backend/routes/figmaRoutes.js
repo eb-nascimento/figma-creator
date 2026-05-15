@@ -1,5 +1,8 @@
-const { fetchFigmaFile } = require("../services/figmaApi");
-const { extractMainFrames } = require("../services/figmaFrames");
+const { fetchFigmaFile, fetchFigmaImages } = require("../services/figmaApi");
+const {
+  attachFrameThumbnails,
+  extractMainFrames,
+} = require("../services/figmaFrames");
 const { extractFigmaFileKey } = require("../services/figmaUrl");
 const { SESSION_COOKIE_NAME, getSession } = require("../services/sessionStore");
 const { getValidAccessToken } = require("../services/figmaOAuth");
@@ -14,32 +17,45 @@ async function getAuthorizedFigmaFile(requestBody, requestContext = {}) {
 
   return {
     fileKey,
+    accessToken,
     figmaFile,
   };
 }
 
 async function handleFigmaImport(requestBody, requestContext = {}) {
-  const { fileKey, figmaFile } = await getAuthorizedFigmaFile(
+  const { fileKey, accessToken, figmaFile } = await getAuthorizedFigmaFile(
     requestBody,
     requestContext
+  );
+  const frames = extractMainFrames(figmaFile);
+  const thumbnails = await fetchFigmaImages(
+    fileKey,
+    frames.map((frame) => frame.id),
+    { accessToken }
   );
 
   return {
     file_key: fileKey,
     figmaFile,
-    frames: extractMainFrames(figmaFile),
+    frames: attachFrameThumbnails(frames, thumbnails),
   };
 }
 
 async function handleFigmaFrames(requestBody, requestContext = {}) {
-  const { fileKey, figmaFile } = await getAuthorizedFigmaFile(
+  const { fileKey, accessToken, figmaFile } = await getAuthorizedFigmaFile(
     requestBody,
     requestContext
+  );
+  const frames = extractMainFrames(figmaFile);
+  const thumbnails = await fetchFigmaImages(
+    fileKey,
+    frames.map((frame) => frame.id),
+    { accessToken }
   );
 
   return {
     file_key: fileKey,
-    frames: extractMainFrames(figmaFile),
+    frames: attachFrameThumbnails(frames, thumbnails),
   };
 }
 

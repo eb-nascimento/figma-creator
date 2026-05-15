@@ -49,16 +49,21 @@ O sistema deve consumir a API oficial do Figma utilizando autenticacao via OAuth
 
 - Sistema acessa a API do Figma de forma autenticada por usuario via OAuth 2.0.
 
-## RF03 - Listagem de frames (telas)
+## RF03 - Listagem de telas principais
 
-O sistema deve exibir todas as telas principais do arquivo.
+O sistema deve listar as telas principais disponiveis no arquivo Figma para selecao do usuario.
 
 ### Regras
 
 - Apenas frames principais devem ser exibidos.
-- Exibir nome e ID.
-- Ordenacao conforme estrutura do Figma.
+- Exibir nome da tela.
+- Exibir ID do frame.
+- Exibir nome da pagina do Figma.
+- Exibir preview em miniatura.
+- Ordenacao deve seguir a estrutura original do Figma.
+- Nao carregar detalhes internos completos nesta etapa.
+- Dados completos da tela devem ser carregados apenas apos selecao do usuario.
 
 ### Resultado
 
-- Usuario visualiza todas as telas disponiveis.
+- Usuario consegue identificar visualmente e selecionar corretamente a tela desejada para implementacao.

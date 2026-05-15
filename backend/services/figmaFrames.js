@@ -15,10 +15,21 @@ function extractMainFrames(figmaFile) {
       .map((frame) => ({
         id: frame.id,
         name: frame.name,
+        pageId: page.id,
+        pageName: page.name,
+        thumbnailUrl: null,
       }));
   });
 }
 
+function attachFrameThumbnails(frames, imagesByFrameId = {}) {
+  return frames.map((frame) => ({
+    ...frame,
+    thumbnailUrl: imagesByFrameId[frame.id] || null,
+  }));
+}
+
 module.exports = {
+  attachFrameThumbnails,
   extractMainFrames,
 };

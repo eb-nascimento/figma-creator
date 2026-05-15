@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { extractMainFrames } = require("./figmaFrames");
+const { attachFrameThumbnails, extractMainFrames } = require("./figmaFrames");
 
 test("extracts only top-level frames from Figma pages preserving document order", () => {
   const frames = extractMainFrames({
@@ -8,6 +8,7 @@ test("extracts only top-level frames from Figma pages preserving document order"
       children: [
         {
           id: "page-1",
+          name: "Authentication",
           type: "CANVAS",
           children: [
             {
@@ -31,6 +32,7 @@ test("extracts only top-level frames from Figma pages preserving document order"
         },
         {
           id: "page-2",
+          name: "Product",
           type: "CANVAS",
           children: [
             {
@@ -48,10 +50,16 @@ test("extracts only top-level frames from Figma pages preserving document order"
     {
       id: "1:1",
       name: "Login",
+      pageId: "page-1",
+      pageName: "Authentication",
+      thumbnailUrl: null,
     },
     {
       id: "2:1",
       name: "Dashboard",
+      pageId: "page-2",
+      pageName: "Product",
+      thumbnailUrl: null,
     },
   ]);
 });
@@ -59,4 +67,45 @@ test("extracts only top-level frames from Figma pages preserving document order"
 test("returns empty list when Figma document has no pages", () => {
   assert.deepEqual(extractMainFrames({ document: {} }), []);
   assert.deepEqual(extractMainFrames(null), []);
+});
+
+test("attaches thumbnail URLs by frame ID", () => {
+  const frames = attachFrameThumbnails(
+    [
+      {
+        id: "1:1",
+        name: "Login",
+        pageId: "page-1",
+        pageName: "Authentication",
+        thumbnailUrl: null,
+      },
+      {
+        id: "2:1",
+        name: "Dashboard",
+        pageId: "page-2",
+        pageName: "Product",
+        thumbnailUrl: null,
+      },
+    ],
+    {
+      "1:1": "https://figma-preview.test/login.png",
+    }
+  );
+
+  assert.deepEqual(frames, [
+    {
+      id: "1:1",
+      name: "Login",
+      pageId: "page-1",
+      pageName: "Authentication",
+      thumbnailUrl: "https://figma-preview.test/login.png",
+    },
+    {
+      id: "2:1",
+      name: "Dashboard",
+      pageId: "page-2",
+      pageName: "Product",
+      thumbnailUrl: null,
+    },
+  ]);
 });

@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { fetchFigmaFile } = require("./figmaApi");
+const { fetchFigmaFile, fetchFigmaImages } = require("./figmaApi");
 
 test("requires an OAuth access token", async () => {
   await assert.rejects(
@@ -52,4 +52,44 @@ test("maps authentication, permission, and inaccessible file errors", async () =
       message
     );
   }
+});
+
+test("returns frame preview image URLs when image request succeeds", async () => {
+  const images = {
+    "1:1": "https://figma-preview.test/login.png",
+    "2:1": "https://figma-preview.test/dashboard.png",
+  };
+
+  const result = await fetchFigmaImages("FileKey123", ["1:1", "2:1"], {
+    accessToken: "token",
+    fetchImpl: async (url, options) => {
+      const requestUrl = new URL(url);
+
+      assert.equal(requestUrl.origin, "https://api.figma.com");
+      assert.equal(requestUrl.pathname, "/v1/images/FileKey123");
+      assert.equal(requestUrl.searchParams.get("ids"), "1:1,2:1");
+      assert.equal(requestUrl.searchParams.get("format"), "png");
+      assert.equal(requestUrl.searchParams.get("scale"), "1");
+      assert.equal(options.headers.Authorization, "Bearer token");
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ images }),
+      };
+    },
+  });
+
+  assert.deepEqual(result, images);
+});
+
+test("does not request frame previews when frame list is empty", async () => {
+  const result = await fetchFigmaImages("FileKey123", [], {
+    accessToken: "token",
+    fetchImpl: async () => {
+      throw new Error("Nao deveria consultar a API do Figma.");
+    },
+  });
+
+  assert.deepEqual(result, {});
 });
