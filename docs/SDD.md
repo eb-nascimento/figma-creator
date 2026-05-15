@@ -86,21 +86,23 @@ O sistema deve consumir a API oficial do Figma para obter os dados do arquivo.
 
 ---
 
-## 🔹 RF03 — Listagem de frames (telas)
+🔹 RF03 — Listagem de telas principais
 
-O sistema deve exibir todas as telas principais do arquivo.
+O sistema deve listar as telas principais disponíveis no arquivo Figma para seleção do usuário.
 
-### Regras:
+Regras
+Apenas frames principais devem ser exibidos
+Exibir:
+nome da tela
+ID do frame
+nome da página do Figma
+preview em miniatura
+Ordenação deve seguir a estrutura original do Figma
+Não carregar detalhes internos completos nesta etapa
+Dados completos da tela devem ser carregados apenas após seleção do usuário
+Resultado esperado
 
-* Apenas frames principais devem ser exibidos
-* Exibir nome e ID
-* Ordenação conforme estrutura do Figma
-
-### Resultado:
-
-* Usuário visualiza todas as telas disponíveis
-
----
+Usuário consegue identificar visualmente e selecionar corretamente a tela desejada para implementação.
 
 ## 🔹 RF04 — Seleção de frame
 
