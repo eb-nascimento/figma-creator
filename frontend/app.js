@@ -9,6 +9,8 @@ const state = {
   selectedFrameId: null,
   selectingFrameId: null,
   extractingStructure: false,
+  generatingCss: false,
+  generatedCss: null,
 };
 
 const elements = {
@@ -26,6 +28,8 @@ const elements = {
   logoutButton: document.querySelector("#logout-button"),
   refinedHtml: document.querySelector("#refined-html"),
   refineHtmlButton: document.querySelector("#refine-html-button"),
+  generateCssButton: document.querySelector("#generate-css-button"),
+  generatedCss: document.querySelector("#generated-css"),
   selectedId: document.querySelector("#selected-id"),
   selectedName: document.querySelector("#selected-name"),
   selectedPage: document.querySelector("#selected-page"),
@@ -33,6 +37,7 @@ const elements = {
   selectionEmpty: document.querySelector("#selection-empty"),
   structureJson: document.querySelector("#structure-json"),
   structureSummary: document.querySelector("#structure-summary"),
+  generateExportButton: document.querySelector("#generate-export-button"),
 };
 
 function setFeedback(message, options = {}) {
@@ -63,6 +68,18 @@ function setRefineHtmlLoading(isLoading) {
   state.refiningHtml = isLoading;
   elements.refineHtmlButton.disabled = isLoading || !state.generatedHtml;
   elements.refineHtmlButton.textContent = isLoading ? "Refinando..." : "Refinar HTML";
+}
+
+function setCssLoading(isLoading) {
+  state.generatingCss = isLoading;
+  elements.generateCssButton.disabled = isLoading || !state.extractedStructure;
+  elements.generateCssButton.textContent = isLoading ? "Gerando..." : "Gerar CSS";
+}
+
+function setExportLoading(isLoading) {
+  state.generatingExport = isLoading;
+  elements.generateExportButton.disabled = isLoading || !state.extractedStructure;
+  elements.generateExportButton.textContent = isLoading ? "Exportando..." : "Exportar Código";
 }
 
 async function requestJson(url, options = {}) {
@@ -161,6 +178,7 @@ function resetStructurePanel() {
     ? "Clique em Extrair estrutura para buscar a arvore do frame."
     : "Selecione um frame e extraia a estrutura.";
   resetHtmlPanel();
+  resetCssPanel();
 }
 
 function renderStructure(payload) {
@@ -173,6 +191,7 @@ function renderStructure(payload) {
   elements.structureJson.textContent = JSON.stringify(payload.structure, null, 2);
   state.extractedStructure = payload.structure;
   elements.generateHtmlButton.disabled = false;
+  elements.generateCssButton.disabled = false;
 }
 
 function resetHtmlPanel() {
@@ -199,6 +218,19 @@ function resetRefinedHtmlPanel() {
 
 function renderRefinedHtml(payload) {
   elements.refinedHtml.textContent = payload.html;
+}
+
+function resetCssPanel() {
+  state.generatedCss = null;
+  elements.generateCssButton.disabled = true;
+  elements.generatedCss.textContent = state.selectedFrame
+    ? "Extraia a estrutura antes de gerar CSS."
+    : "Selecione um frame e extraia a estrutura antes de gerar CSS.";
+}
+
+function renderGeneratedCss(payload) {
+  state.generatedCss = payload.css;
+  elements.generatedCss.textContent = payload.css;
 }
 
 async function loadFrames(event) {
@@ -355,12 +387,76 @@ async function refineHtml() {
       }),
     });
 
+    if (payload.structure) {
+      state.extractedStructure = payload.structure;
+    }
+    
     renderRefinedHtml(payload);
     setFeedback("HTML refinado com sucesso.");
   } catch (error) {
     setFeedback(error.message, { error: true });
   } finally {
     setRefineHtmlLoading(false);
+  }
+}
+
+async function generateCss() {
+  if (!state.extractedStructure) {
+    setFeedback("Extraia a estrutura antes de gerar CSS.", { error: true });
+    return;
+  }
+
+  setCssLoading(true);
+  elements.generatedCss.textContent = "Gerando CSS a partir da estrutura...";
+  setFeedback("Gerando CSS...");
+
+  try {
+    const payload = await requestJson("/api/generate/css", {
+      method: "POST",
+      body: JSON.stringify({
+        structure: state.extractedStructure,
+      }),
+    });
+
+    renderGeneratedCss(payload);
+    setFeedback("CSS gerado com sucesso.");
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+  } finally {
+    setCssLoading(false);
+  }
+}
+
+async function generateExport() {
+  if (!state.extractedStructure) {
+    setFeedback("Extraia a estrutura antes de exportar.", { error: true });
+    return;
+  }
+
+  setExportLoading(true);
+  elements.refinedHtml.textContent = "Gerando exportação...";
+  elements.generatedCss.textContent = "Gerando exportação...";
+  setFeedback("Gerando exportação unificada...");
+
+  try {
+    const payload = await requestJson("/api/generate/export", {
+      method: "POST",
+      body: JSON.stringify({
+        structure: state.extractedStructure,
+      }),
+    });
+
+    if (payload.structure) {
+      state.extractedStructure = payload.structure;
+    }
+    
+    renderRefinedHtml(payload);
+    renderGeneratedCss(payload);
+    setFeedback("Exportação unificada concluída com sucesso.");
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+  } finally {
+    setExportLoading(false);
   }
 }
 
@@ -385,6 +481,8 @@ elements.extractStructureButton.addEventListener("click", extractStructure);
 elements.figmaForm.addEventListener("submit", loadFrames);
 elements.generateHtmlButton.addEventListener("click", generateHtml);
 elements.refineHtmlButton.addEventListener("click", refineHtml);
+elements.generateCssButton.addEventListener("click", generateCss);
+elements.generateExportButton.addEventListener("click", generateExport);
 
 document.querySelectorAll(".copy-button").forEach(button => {
   button.addEventListener("click", async () => {

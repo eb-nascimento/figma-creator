@@ -59,6 +59,16 @@ function normalizeLayout(node) {
     y: roundNumber(bounds.y),
     width: roundNumber(bounds.width),
     height: roundNumber(bounds.height),
+    layoutMode: node.layoutMode || null,
+    itemSpacing: roundNumber(node.itemSpacing),
+    paddingLeft: roundNumber(node.paddingLeft),
+    paddingRight: roundNumber(node.paddingRight),
+    paddingTop: roundNumber(node.paddingTop),
+    paddingBottom: roundNumber(node.paddingBottom),
+    primaryAxisAlignItems: node.primaryAxisAlignItems || null,
+    counterAxisAlignItems: node.counterAxisAlignItems || null,
+    primaryAxisSizingMode: node.primaryAxisSizingMode || null,
+    counterAxisSizingMode: node.counterAxisSizingMode || null,
   };
 }
 
@@ -70,6 +80,15 @@ function normalizeStyle(node) {
     opacity: roundNumber(node.opacity ?? 1),
     fill: fill ? normalizeColor(fill.color, fill.opacity ?? 1) : null,
     stroke: stroke ? normalizeColor(stroke.color, stroke.opacity ?? 1) : null,
+    fills: Array.isArray(node.fills) ? node.fills.map(f => ({
+      type: f.type,
+      color: f.color ? normalizeColor(f.color, f.opacity ?? 1) : null
+    })) : [],
+    strokes: Array.isArray(node.strokes) ? node.strokes.map(f => ({
+      type: f.type,
+      color: f.color ? normalizeColor(f.color, f.opacity ?? 1) : null
+    })) : [],
+    strokeWeight: roundNumber(node.strokeWeight),
     borderRadius: roundNumber(node.cornerRadius),
   };
 }

@@ -148,7 +148,7 @@ function isSegmentedControlNode(node) {
 
 function isDataGridNode(node) {
   const children = node.children || [];
-  const hasTable = children.some(isTableNode);
+  const hasTable = children.some(c => isTableNode(c) || c.className === "table-wrapper");
   const hasFilter = children.some((c) => getNameParts(c).includes("filtro"));
   return hasTable && hasFilter;
 }
@@ -226,6 +226,22 @@ function getSemanticTag(node, isRoot = false, hasInteractiveAncestor = false) {
 
   if (hasInteractiveAncestor && isButtonLike(node)) {
     return isIconNode(node) ? "span" : "div";
+  }
+
+  if (isSidebarNode(node)) {
+    return "aside";
+  }
+
+  if (isSummaryCardNode(node, isRoot)) {
+    return "article";
+  }
+
+  if (isSegmentedControlNode(node)) {
+    return "fieldset";
+  }
+
+  if (isFieldNode(node) && !hasInteractiveAncestor && node.type !== "text") {
+    return "div";
   }
 
   if (isFormNode(node) && !isRoot) {
@@ -322,6 +338,18 @@ function getBaseClassName(node, tag, isRoot = false) {
     return "movement-form";
   }
 
+  if (isSidebarNode(node)) {
+    return "sidebar";
+  }
+
+  if (isSegmentedControlNode(node)) {
+    return "segmented-control";
+  }
+
+  if (isFieldNode(node)) {
+    return `form-field form-field--${getFieldRole(node)}`;
+  }
+
   if (tag === "article") {
     return `summary-card${getSummaryCardModifier(node)}`;
   }
@@ -350,6 +378,35 @@ function getRefinedClassName(
 ) {
   const tag = getSemanticTag(node, isRoot, hasInteractiveAncestor);
   return getBaseClassName(node, tag, isRoot);
+}
+
+function injectSemanticClasses(node, isRoot = false, interactiveContext = false) {
+  if (!node) return;
+
+  const isInteractive = Boolean(interactiveContext);
+  node.semanticTag = getSemanticTag(node, isRoot, isInteractive);
+  node.className = getRefinedClassName(node, isRoot, isInteractive);
+
+  if (isTableNode(node) && !node.isWrappedInTable) {
+    const originalTableNode = { ...node, isWrappedInTable: true };
+    node.type = "group";
+    node.figmaType = "GROUP";
+    node.semanticTag = "div";
+    node.className = "table-wrapper";
+    node.children = [originalTableNode];
+    node.isWrapper = true;
+    
+    injectSemanticClasses(originalTableNode, false, interactiveContext);
+    return;
+  }
+
+  const hasVisibleText = getTextDescendants(node).length > 0;
+  const isButton = node.semanticTag === "button";
+  const childInteractiveContext = isInteractive ? interactiveContext : (isButton ? { hasText: hasVisibleText } : false);
+
+  (node.children || []).forEach(child => {
+    injectSemanticClasses(child, false, childInteractiveContext);
+  });
 }
 
 function indent(level) {
@@ -580,8 +637,8 @@ function renderRefinedNode(
   }
 
   const isInteractive = Boolean(interactiveContext);
-  const tag = getSemanticTag(node, isRoot, isInteractive);
-  const className = getRefinedClassName(node, isRoot, isInteractive);
+  const tag = node.semanticTag || getSemanticTag(node, isRoot, isInteractive);
+  const className = node.className || getRefinedClassName(node, isRoot, isInteractive);
 
   if (isSidebarNode(node)) {
     return renderSidebarNode(node, level);
@@ -666,7 +723,10 @@ function refineHtml(structure) {
     throw error;
   }
 
-  return `<!doctype html>
+  injectSemanticClasses(structure, true, false);
+  structure.isRefined = true;
+
+  const html = `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
@@ -677,8 +737,11 @@ function refineHtml(structure) {
 ${renderRefinedNode(structure, 2, true)}
   </body>
 </html>`;
+
+  return { html, structure };
 }
 
 module.exports = {
   refineHtml,
+  injectSemanticClasses,
 };

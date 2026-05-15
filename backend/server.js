@@ -15,7 +15,7 @@ const {
   handleFigmaFrames,
   handleFigmaImport,
 } = require("./routes/figmaRoutes");
-const { handleGenerateHtml, handleRefineHtml } = require("./routes/generateRoutes");
+const { handleGenerateHtml, handleRefineHtml, handleGenerateCss, handleGenerateAll } = require("./routes/generateRoutes");
 
 loadEnv();
 
@@ -256,6 +256,32 @@ async function requestListener(request, response) {
     try {
       const body = await readJsonBody(request);
       const result = handleRefineHtml(body);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/export") {
+    try {
+      const body = await readJsonBody(request);
+      const result = handleGenerateAll(body);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/css") {
+    try {
+      const body = await readJsonBody(request);
+      const result = handleGenerateCss(body);
       sendJson(request, response, 200, result);
     } catch (error) {
       sendJson(request, response, error.statusCode || 500, {

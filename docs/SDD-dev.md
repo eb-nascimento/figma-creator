@@ -240,3 +240,47 @@ O sistema deve interpretar semanticamente a funcao dos elementos da tela antes d
 
 - Sistema retorna um HTML semanticamente refinado, organizado por componentes e preparado para a geracao de CSS da RF07.
 - A entrega esperada nao deve ser uma reproducao estatica puramente visual, mas uma estrutura de codigo reutilizavel, acessivel, responsiva e sustentavel.
+
+## RF07 - Geração Unificada de HTML e CSS (Single Source of Truth)
+
+Para evitar divergência entre estrutura e estilo, a arquitetura do sistema exige que o HTML e o CSS sejam produzidos a partir de uma **mesma árvore intermediária refinada**.
+
+### Fluxo de Geração
+1. **Refinamento da Árvore:** O sistema interpreta a árvore extraída do Figma e gera uma árvore semântica e visual refinada, injetando as tags, classes, componentes, modificadores e tokens diretamente nos nós.
+2. **Mutação Coordenada:** Se a análise visual/CSS exigir que um elemento precise de um contêiner (wrapper) para fins de responsividade (ex: `.table-wrapper` para transbordo horizontal), esse nó deve ser explicitamente adicionado à árvore refinada antes da geração do código final.
+3. **Produção Dupla:** A partir dessa árvore consolidada, o sistema gera o HTML e o CSS de forma coordenada, garantindo que o CSS consuma exatamente as classes declaradas nos nós e o HTML renderize a mesma estrutura.
+4. **Fallback:** O sistema pode manter a geração isolada de HTML ou CSS para fins de debug e compatibilidade, mas o fluxo principal de exportação deve ser sincronizado e integrado.
+
+### Validação Pós-Geração
+A arquitetura exige uma validação de coerência após a geração do par HTML+CSS:
+- Garantir que toda classe presente nas regras do CSS gerado exista no HTML exportado.
+- Garantir que componentes relevantes do HTML (botões, inputs, grids) possuam suporte de estilo no CSS quando estritamente necessário.
+- Garantir que todo token referenciado via variável `var(--token)` tenha sido devidamente declarado no pseudo-seletor `:root`.
+- Garantir ausência de seletores órfãos ou classes antigas.
+
+O código CSS gerado deve ser organizado em camadas: Tokens, Base/Reset, Layout, Components, States/Modifiers e Responsiveness.
+
+### Regras de Tokens Visuais (Design Tokens)
+- O sistema deve extrair cores reais do Figma (Fills, Strokes, Textos) e declarar no bloco `:root`.
+- Uso **obrigatório** de tokens semânticos baseados na função e no brilho (ex: `--color-surface`, `--color-border`, `--color-text`, `--color-text-secondary`, `--color-primary`).
+- Proibido o uso de nomes puramente sequenciais/genéricos (ex: `--color-1`, `--color-2`).
+
+### Regras de Layout e Posicionamento (Layout System)
+- **Flex e Grid Contextuais:** O layout deve refletir fielmente a tela, usando `display: grid` ou `display: flex` estritamente conforme o contexto do componente. É proibido aplicar `auto-fit` genérico para todas as seções.
+- As tags e estruturas nativas (tabelas, listas, thead, tbody, tr, td) devem manter seu comportamento de bloco/tabela, sem flexbox indiscriminado.
+
+### Regras de Estilo de Componentes (Component Styling)
+- O CSS deve diferenciar claramente componente raiz, elemento filho, estado e modificador.
+- **Evitar especificidade acidental e estilos globais sujos:** Classes genéricas (ex: `.subtitle`, `.button`, `.icon`, `.form-control`) não devem receber dimensões fixas (widths, heights, margins arbitrárias) ou posicionamentos absolutos do Figma. Devem conter apenas estilos inerentes ao componente base.
+- **Componentes Completos Reutilizáveis:** O gerador deve injetar bases de estilo profissionais para componentes identificados como `.sidebar-nav`, `.movimentacoes`, `.campos`, `.segmented-control`, `.summary-card__label` e `.summary-card__value`.
+- **Layouts Coerentes de Telas:** Containers principais e telas (ex: `.nova-movimentacao-entrada` e classes de sufixo `.screen`) devem ter regras coerentes de fluxo contínuo (display: flex column, com padding base e max-width aplicável).
+- **Consistência de Estrutura:** Se o CSS exigir wrappers para responsividade (como `.table-wrapper` ou `.content-area`), a estrutura do HTML gerado (Refiner) deve ser consistentemente atualizada para incluir esses wrappers e suas respectivas classes.
+- **Formulários:** A classe `.form-control` é estritamente designada como classe de componente interativo nativo (aplicada em `input`, `select`, `textarea`), não como um contêiner (wrapper).
+- **Outros:** `.button`, `.summary-card`, `.sidebar`, `.segmented-control`, `.icon` (ícones devem receber propriedades inerentes como `flex-shrink: 0`, `display`, e controle rígido de `width`/`height`).
+- **Botões:** O estilo base `.button` deve prever uma cor de texto universal e comportamentos de hover/active. Além do base, botões mais específicos/reais identificados do Figma (ex: `.button-mostrar-mais`, `.button-filtro`, `.button-salvar`) devem receber especializações adequadas ao invés de classes vazias, priorizando seus tokens.
+
+### Regras de Seletores e Validação (Sem Órfãos)
+- **Validação:** O gerador deve obrigatoriamente validar todo o CSS contra o HTML gerado (string parse). É estritamente proibido gerar seletores órfãos (que não existem no HTML gerado) ou heranças de nomes obsoletos (ex: `.main-layout`, `.fundo`, `.button-select`).
+- O gerador deve corrigir seletores inválidos (ex: união cega de classes `.form-field.form-field--valor.label`). O sistema usará preferencialmente seletores descendentes limpos.
+- **Especialização Controlada:** Modificadores e classes muito específicas só devem receber as diferenças de estilo (ex: larguras e cores específicas), preservando o CSS base daquele componente sem duplicação de atributos (ex: não duplicar os atributos comuns de botão dentro de `.button--primary`).
+- Os tokens consumidos pelas regras CSS devem **garantidamente** ter sido declarados na camada de `:root`, evitando variáveis vazias. O gerador de CSS deve injetar *fallbacks* padrão no `:root` (ex: `--color-text-secondary`) caso o motor não tenha extraído essas cores do Figma. O token do fundo da página deve usar explicitamente `--color-surface-alt` sempre que este diferir do surface principal, prevenindo falhas de contaste de fundos genéricos.
