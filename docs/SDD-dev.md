@@ -273,11 +273,34 @@ O código CSS gerado deve ser organizado em camadas: Tokens, Base/Reset, Layout,
 - O CSS deve diferenciar claramente componente raiz, elemento filho, estado e modificador.
 - **Evitar especificidade acidental e estilos globais sujos:** Classes genéricas (ex: `.subtitle`, `.button`, `.icon`, `.form-control`) não devem receber dimensões fixas (widths, heights, margins arbitrárias) ou posicionamentos absolutos do Figma. Devem conter apenas estilos inerentes ao componente base.
 - **Componentes Completos Reutilizáveis:** O gerador deve injetar bases de estilo profissionais para componentes identificados como `.sidebar-nav`, `.movimentacoes`, `.campos`, `.segmented-control`, `.summary-card__label` e `.summary-card__value`.
-- **Layouts Coerentes de Telas:** Containers principais e telas (ex: `.nova-movimentacao-entrada` e classes de sufixo `.screen`) devem ter regras coerentes de fluxo contínuo (display: flex column, com padding base e max-width aplicável).
+- **Layouts Coerentes de Telas:** Containers principais devem ter regras coerentes de fluxo continuo aplicadas ao seletor real emitido no HTML final, sem depender de uma tela de exemplo ou de uma classe fixa como `.screen`.
 - **Consistência de Estrutura:** Se o CSS exigir wrappers para responsividade (como `.table-wrapper` ou `.content-area`), a estrutura do HTML gerado (Refiner) deve ser consistentemente atualizada para incluir esses wrappers e suas respectivas classes.
 - **Formulários:** A classe `.form-control` é estritamente designada como classe de componente interativo nativo (aplicada em `input`, `select`, `textarea`), não como um contêiner (wrapper).
 - **Outros:** `.button`, `.summary-card`, `.sidebar`, `.segmented-control`, `.icon` (ícones devem receber propriedades inerentes como `flex-shrink: 0`, `display`, e controle rígido de `width`/`height`).
 - **Botões:** O estilo base `.button` deve prever uma cor de texto universal e comportamentos de hover/active. Além do base, botões mais específicos/reais identificados do Figma (ex: `.button-mostrar-mais`, `.button-filtro`, `.button-salvar`) devem receber especializações adequadas ao invés de classes vazias, priorizando seus tokens.
+
+## RF07.1 - Responsividade do Codigo Gerado
+
+O sistema deve complementar o CSS base do RF07 com regras responsivas geradas a partir do HTML refinado e da arvore semantica consolidada.
+
+### Regras implementadas
+
+- Gerar a camada `Responsiveness` com breakpoints em `1024px`, `768px` e `480px`.
+- Emitir regras responsivas somente para seletores presentes no HTML final, evitando seletores orfaos.
+- Identificar dinamicamente a classe raiz/container principal na arvore refinada e confirmar o seletor real no HTML final antes de gerar regras de layout macro.
+- Aplicar as regras responsivas do layout pai ao seletor real detectado, sem criar classe estrutural nova somente no CSS.
+- Gerar regras para o layout pai usando a classe real da tela atual, por exemplo `.dashboard`, `.login` ou `.landing-page`, sem depender de `.nova-movimentacao-entrada` ou `.screen`.
+- Tratar `.nova-movimentacao-entrada` apenas como exemplo de uma tela especifica, nunca como regra fixa.
+- Garantir que a mesma logica funcione para dashboard, formulario, landing page, login, painel administrativo, tela mobile ou qualquer outro frame importado do Figma.
+- Ajustar a sidebar com largura/flex apenas quando existir um container principal real capaz de controlar a direcao do layout.
+- Adaptar grupos de cards/KPIs (`.valores`, `.summary-card`) para menos colunas em tablet e uma coluna em mobile.
+- Adaptar grupos de campos e formularios (`.campos`, `.form-field`, `.form-control`, `.movement-form`) para largura total e empilhamento em telas menores.
+- Manter tabelas/data grids utilizaveis no mobile com `.table-wrapper { overflow-x: auto; }` e largura minima da tabela.
+- Preservar responsividade de segmented controls (`.segmented-control`) sem alterar a semantica do HTML.
+- Adaptar sidebar sem JavaScript nesta etapa: largura compacta em tablet e navegacao horizontal com overflow em mobile.
+- Preservar o fluxo semantico do HTML: a responsividade deve ser aplicada por CSS, sem trocar tags semanticas por divs genericas.
+- Preservar a geracao sincronizada de HTML + CSS pela mesma arvore refinada.
+- A classificacao de cards de resumo deve ser local ao componente compacto. Containers grandes, telas ou secoes com tabelas/formularios descendentes nao podem virar KPI apenas por conterem valores monetarios aninhados.
 
 ### Regras de Seletores e Validação (Sem Órfãos)
 - **Validação:** O gerador deve obrigatoriamente validar todo o CSS contra o HTML gerado (string parse). É estritamente proibido gerar seletores órfãos (que não existem no HTML gerado) ou heranças de nomes obsoletos (ex: `.main-layout`, `.fundo`, `.button-select`).

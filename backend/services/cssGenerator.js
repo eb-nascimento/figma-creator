@@ -459,6 +459,48 @@ function selectorExistsInHtml(selector, activeSet) {
   return true;
 }
 
+function getRootSelectorFromHtml(htmlString) {
+  const bodyRootMatch = String(htmlString || "").match(/<body>\s*<([a-z0-9-]+)([^>]*)>/i);
+  if (!bodyRootMatch) {
+    return "";
+  }
+
+  const attributes = bodyRootMatch[2] || "";
+  const classMatch = attributes.match(/class="([^"]+)"/i);
+  if (classMatch) {
+    const className = classMatch[1].split(/\s+/).find(Boolean);
+    return className ? `.${className}` : bodyRootMatch[1].toLowerCase();
+  }
+
+  return bodyRootMatch[1].toLowerCase();
+}
+
+function selectorExistsInGeneratedHtml(selector, activeSet) {
+  const classMatches = selector.match(/\.[a-zA-Z0-9_-]+/g) || [];
+  for (const className of classMatches) {
+    if (!activeSet.has(className)) {
+      return false;
+    }
+  }
+
+  const selectorWithoutClasses = selector
+    .replace(/\.[a-zA-Z0-9_-]+/g, " ")
+    .replace(/:[a-zA-Z-]+(\([^)]*\))?/g, " ")
+    .replace(/[#>+~*,[\]="'()]/g, " ");
+  const tagNames = selectorWithoutClasses
+    .split(/\s+/)
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+
+  for (const tagName of tagNames) {
+    if (!activeSet.has(tagName)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function extractCssRules(node, colorTokens, layers, activeSet) {
   if (!node) return;
 
@@ -471,7 +513,7 @@ function extractCssRules(node, colorTokens, layers, activeSet) {
          ? "." + (classNames.find(c => c.includes("--") || c !== classNames[0]) || classNames[classNames.length - 1])
          : "." + classNames[0];
 
-      if (selectorExistsInHtml(targetClass, activeSet)) {
+      if (selectorExistsInGeneratedHtml(targetClass, activeSet)) {
         if (!layers.modifiers[targetClass]) {
           layers.modifiers[targetClass] = {};
         }
@@ -481,6 +523,212 @@ function extractCssRules(node, colorTokens, layers, activeSet) {
   }
 
   (node.children || []).forEach(child => extractCssRules(child, colorTokens, layers, activeSet));
+}
+
+function hasSelector(activeSet, selector) {
+  return activeSet.has(selector);
+}
+
+function appendRule(lines, selector, rules, indentLevel = 1) {
+  const pad = "  ".repeat(indentLevel);
+  lines.push(`${pad}${selector} {`);
+  Object.entries(rules).forEach(([prop, val]) => {
+    lines.push(`${pad}  ${prop}: ${val};`);
+  });
+  lines.push(`${pad}}`);
+}
+
+function generateResponsiveCss(activeSelectors, rootSelector = "") {
+  const css = [];
+  const hasRootSelector = rootSelector && selectorExistsInGeneratedHtml(rootSelector, activeSelectors);
+  const contentSelector = hasRootSelector ? `${rootSelector} > :not(.sidebar)` : "";
+  const rootWithSidebarSelector = hasRootSelector ? `${rootSelector}:has(> .sidebar)` : "";
+
+  css.push("/* 6. Responsiveness */");
+
+  const tabletRules = [];
+  if (hasRootSelector) {
+    appendRule(tabletRules, rootSelector, {
+      "width": "100%",
+      "min-height": "100vh"
+    });
+  }
+  if (hasRootSelector && hasSelector(activeSelectors, ".sidebar")) {
+    appendRule(tabletRules, rootWithSidebarSelector, {
+      "flex-direction": "row"
+    });
+    appendRule(tabletRules, ".sidebar", {
+      "width": "96px",
+      "flex": "0 0 96px"
+    });
+    appendRule(tabletRules, contentSelector, {
+      "min-width": "0"
+    });
+  }
+  if (hasSelector(activeSelectors, ".valores")) {
+    appendRule(tabletRules, ".valores", {
+      "grid-template-columns": "repeat(2, minmax(0, 1fr))",
+      "gap": "16px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".campos")) {
+    appendRule(tabletRules, ".campos", {
+      "grid-template-columns": "repeat(2, minmax(0, 1fr))"
+    });
+  }
+  if (hasSelector(activeSelectors, ".movement-form")) {
+    appendRule(tabletRules, ".movement-form", {
+      "max-width": "100%"
+    });
+  }
+
+  if (tabletRules.length > 0) {
+    css.push("@media (max-width: 1024px) {");
+    css.push(...tabletRules);
+    css.push("}");
+    css.push("");
+  }
+
+  const mobileRules = [];
+  if (hasRootSelector && hasSelector(activeSelectors, ".sidebar")) {
+    appendRule(mobileRules, rootWithSidebarSelector, {
+      "flex-direction": "column"
+    });
+    appendRule(mobileRules, ".sidebar", {
+      "width": "100%",
+      "flex": "0 0 auto",
+      "height": "auto",
+      "border-right": "0",
+      "border-bottom": "1px solid var(--color-border, #E2E8F0)"
+    });
+    appendRule(mobileRules, ".sidebar-nav", {
+      "flex-direction": "row",
+      "overflow-x": "auto"
+    });
+  }
+  if (hasRootSelector) {
+    appendRule(mobileRules, contentSelector, {
+      "padding": "20px",
+      "max-width": "100%"
+    });
+  }
+  if (hasSelector(activeSelectors, ".valores")) {
+    appendRule(mobileRules, ".valores", {
+      "grid-template-columns": "1fr",
+      "gap": "12px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".campos")) {
+    appendRule(mobileRules, ".campos", {
+      "grid-template-columns": "1fr"
+    });
+  }
+  if (hasSelector(activeSelectors, ".form-field")) {
+    appendRule(mobileRules, ".form-field", {
+      "width": "100%"
+    });
+  }
+  if (hasSelector(activeSelectors, ".form-control")) {
+    appendRule(mobileRules, ".form-control", {
+      "width": "100%"
+    });
+  }
+  if (hasSelector(activeSelectors, ".movement-form")) {
+    appendRule(mobileRules, ".movement-form", {
+      "padding": "20px",
+      "gap": "16px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".table-wrapper")) {
+    appendRule(mobileRules, ".table-wrapper", {
+      "overflow-x": "auto",
+      "-webkit-overflow-scrolling": "touch"
+    });
+  }
+  if (hasSelector(activeSelectors, ".table")) {
+    appendRule(mobileRules, ".table", {
+      "min-width": "640px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".data-grid")) {
+    appendRule(mobileRules, ".data-grid", {
+      "gap": "16px"
+    });
+  }
+
+  if (mobileRules.length > 0) {
+    css.push("@media (max-width: 768px) {");
+    css.push(...mobileRules);
+    css.push("}");
+    css.push("");
+  }
+
+  const smallMobileRules = [];
+  if (hasRootSelector) {
+    appendRule(smallMobileRules, contentSelector, {
+      "padding": "16px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".summary-card")) {
+    appendRule(smallMobileRules, ".summary-card", {
+      "padding": "16px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".summary-card__value")) {
+    appendRule(smallMobileRules, ".summary-card__value", {
+      "font-size": "20px"
+    });
+  }
+  if (hasSelector(activeSelectors, ".movement-form")) {
+    appendRule(smallMobileRules, ".movement-form", {
+      "padding": "16px"
+    });
+  }
+
+  if (smallMobileRules.length > 0) {
+    css.push("@media (max-width: 480px) {");
+    css.push(...smallMobileRules);
+    css.push("}");
+  }
+
+  if (css.length === 1) {
+    css.push("/* Sem regras responsivas detectadas */");
+  }
+
+  return css.join("\n");
+}
+
+function generateRootLayoutCss(activeSelectors, rootSelector = "") {
+  if (!rootSelector || !selectorExistsInGeneratedHtml(rootSelector, activeSelectors)) {
+    return "";
+  }
+
+  const lines = ["/* 3. Layout */"];
+  appendRule(lines, rootSelector, {
+    "display": "flex",
+    "flex-direction": "column",
+    "width": "100%",
+    "min-height": "100vh"
+  }, 0);
+
+  if (hasSelector(activeSelectors, ".sidebar")) {
+    appendRule(lines, `${rootSelector}:has(> .sidebar)`, {
+      "flex-direction": "row"
+    }, 0);
+    appendRule(lines, `${rootSelector} > :not(.sidebar)`, {
+      "flex": "1",
+      "display": "flex",
+      "flex-direction": "column",
+      "padding": "32px",
+      "gap": "24px",
+      "overflow-y": "auto",
+      "max-width": "1200px",
+      "margin": "0 auto",
+      "min-width": "0"
+    }, 0);
+  }
+
+  return lines.join("\n") + "\n\n";
 }
 
 function generateCss(structure, htmlString = "") {
@@ -504,6 +752,7 @@ function generateCss(structure, htmlString = "") {
 
   const activeSelectors = new Set();
   collectActiveSelectorsFromHtml(htmlString, activeSelectors);
+  const rootSelector = getRootSelectorFromHtml(htmlString);
   
   // Incluir html, body e seletores universais para o reset
   activeSelectors.add("*");
@@ -550,15 +799,15 @@ function generateCss(structure, htmlString = "") {
   cssString += `* {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}\n\n`;
   cssString += `body {\n  font-family: system-ui, -apple-system, sans-serif;\n  color: var(--color-text, #333);\n  background-color: var(--color-surface-alt, #F8FAFC);\n  line-height: 1.5;\n}\n\n`;
 
-  // Layout layer removed hardcoded main-layout and content-area.
+  cssString += generateRootLayoutCss(activeSelectors, rootSelector);
 
-  cssString += "/* 3. Components (Reusable Base) */\n";
+  cssString += "/* 4. Components (Reusable Base) */\n";
   let hasComponents = false;
   Object.entries(layers.components).forEach(([selector, rules]) => {
     // Only output if the base component exists in the HTML
     // We treat comma separated selectors by checking if ANY part exists
     const selectors = selector.split(",").map(s => s.trim());
-    const validSelectors = selectors.filter(s => selectorExistsInHtml(s, activeSelectors));
+    const validSelectors = selectors.filter(s => selectorExistsInGeneratedHtml(s, activeSelectors));
     
     if (validSelectors.length > 0) {
       cssString += `${validSelectors.join(", ")} {\n`;
@@ -572,7 +821,7 @@ function generateCss(structure, htmlString = "") {
 
   if (!hasComponents) cssString += "/* Sem componentes detectados */\n\n";
 
-  cssString += "/* 4. States & Modifiers (Extracted from Figma) */\n";
+  cssString += "/* 5. States & Modifiers (Extracted from Figma) */\n";
   let hasModifiers = false;
   Object.entries(layers.modifiers).forEach(([selector, rules]) => {
     if (Object.keys(rules).length === 0) return;
@@ -587,19 +836,12 @@ function generateCss(structure, htmlString = "") {
   
   if (!hasModifiers) cssString += "/* Sem modificadores específicos extraídos */\n\n";
 
-  cssString += "/* 5. Responsiveness */\n";
-  cssString += `@media (max-width: 768px) {\n`;
-  if (activeSelectors.has(".sidebar")) {
-     cssString += `  .sidebar {\n    display: none; /* Add toggle logic in JS */\n  }\n`;
-  }
-  if (activeSelectors.has(".form-field")) {
-     cssString += `  .form-field {\n    width: 100%;\n  }\n`;
-  }
-  cssString += `}\n`;
+  cssString += generateResponsiveCss(activeSelectors, rootSelector) + "\n";
 
   return cssString.trim() + "\n";
 }
 
 module.exports = {
   generateCss,
+  generateResponsiveCss,
 };

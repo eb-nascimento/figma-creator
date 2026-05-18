@@ -129,16 +129,25 @@ function isFormNode(node) {
 }
 
 function isSummaryCardNode(node, isRoot = false) {
-  if (isRoot) {
+  if (isRoot || !node || node.type === "frame") {
     return false;
   }
 
+  const children = node.children || [];
   const parts = getNameParts(node);
-  const textValues = getTextDescendants(node);
+  const textValues = getDirectTextValues(node);
   const hasSummaryName = parts.some((part) => SUMMARY_CARD_PARTS.has(part));
   const hasMoneyValue = textValues.some((text) => /R\$\s?\d/.test(text));
+  const hasLabel = textValues.some((text) => text && !/R\$\s?\d/.test(text));
 
-  return hasSummaryName && hasMoneyValue;
+  return (
+    hasSummaryName &&
+    hasMoneyValue &&
+    hasLabel &&
+    children.length > 0 &&
+    children.length <= 4 &&
+    !hasStructuralDescendant(node)
+  );
 }
 
 function isSegmentedControlNode(node) {
@@ -307,6 +316,13 @@ function getTextClassName(tag) {
 }
 
 function getBaseClassName(node, tag, isRoot = false) {
+  const parts = getNameParts(node);
+
+  if (isRoot) {
+    const screenName = parts.filter((part) => part !== "screen").join("-");
+    return screenName || "screen";
+  }
+
   if (tag === "span" && (isIconNode(node) || isGraphicIconNode(node))) {
     return `icon icon-${getIconRole(node)}`;
   }
@@ -358,14 +374,8 @@ function getBaseClassName(node, tag, isRoot = false) {
     return "data-grid";
   }
 
-  const parts = getNameParts(node);
-
   if (parts.length > 0) {
     return parts.join("-");
-  }
-
-  if (isRoot) {
-    return "screen";
   }
 
   return tag === "div" ? "container" : tag;
@@ -382,6 +392,14 @@ function getRefinedClassName(
 
 function injectSemanticClasses(node, isRoot = false, interactiveContext = false) {
   if (!node) return;
+
+  if (node.isWrapper && node.className === "table-wrapper") {
+    node.semanticTag = "div";
+    (node.children || []).forEach(child => {
+      injectSemanticClasses(child, false, interactiveContext);
+    });
+    return;
+  }
 
   const isInteractive = Boolean(interactiveContext);
   node.semanticTag = getSemanticTag(node, isRoot, isInteractive);
@@ -438,6 +456,31 @@ function getTextDescendants(node) {
 
   visit(node);
   return textNodes;
+}
+
+function getDirectTextValues(node) {
+  return (node.children || [])
+    .filter((child) => child.type === "text" && child.text && child.text.characters)
+    .map((child) => child.text.characters);
+}
+
+function hasStructuralDescendant(node) {
+  function visit(currentNode) {
+    if (!currentNode) {
+      return false;
+    }
+
+    return (
+      isTableNode(currentNode) ||
+      isDataGridNode(currentNode) ||
+      isFormNode(currentNode) ||
+      isMenuNode(currentNode) ||
+      isSegmentedControlNode(currentNode) ||
+      (currentNode.children || []).some(visit)
+    );
+  }
+
+  return (node.children || []).some(visit);
 }
 
 function getButtonRole(node) {
@@ -560,7 +603,7 @@ function renderSidebarNode(node, level) {
 }
 
 function renderSummaryCardNode(node, level) {
-  const texts = getTextDescendants(node);
+  const texts = getDirectTextValues(node);
   const value = texts.find((text) => /R\$\s?\d/.test(text)) || "";
   const label = texts.find((text) => text !== value) || getNameParts(node).join(" ");
 

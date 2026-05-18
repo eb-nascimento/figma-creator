@@ -349,6 +349,64 @@ test("renders detected table groups as semantic table markup", () => {
   assert.doesNotMatch(html.html, /class="r"/);
 });
 
+test("does not classify large screen sections as summary cards from nested money values", () => {
+  const html = refineHtml({
+    id: "1:1",
+    name: "Screen",
+    type: "frame",
+    figmaType: "FRAME",
+    text: null,
+    children: [
+      {
+        id: "1:2",
+        name: "Nova Movimentacao Entrada",
+        type: "group",
+        figmaType: "GROUP",
+        text: null,
+        children: [
+          {
+            id: "1:3",
+            name: "Tabela",
+            type: "group",
+            figmaType: "GROUP",
+            text: null,
+            children: [
+              {
+                id: "1:4",
+                name: "Linha",
+                type: "group",
+                figmaType: "GROUP",
+                text: null,
+                children: [
+                  {
+                    id: "1:5",
+                    name: "Descricao",
+                    type: "text",
+                    figmaType: "TEXT",
+                    text: { characters: "Tatuagem", fontSize: 16 },
+                    children: [],
+                  },
+                  {
+                    id: "1:6",
+                    name: "Valor",
+                    type: "text",
+                    figmaType: "TEXT",
+                    text: { characters: "R$1.000,00", fontSize: 16 },
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  assert.match(html.html, /<div class="nova-movimentacao-entrada">/);
+  assert.doesNotMatch(html.html, /<article class="summary-card summary-card--entrada">/);
+});
+
 test("uses role-based text classes instead of content-derived classes", () => {
   const html = refineHtml({
     id: "1:1",
