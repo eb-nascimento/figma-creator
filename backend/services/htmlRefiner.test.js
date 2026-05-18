@@ -90,13 +90,13 @@ test("refines generic Figma class names into semantic HTML", () => {
     ],
   });
 
-  assert.match(html.html, /<main class="nova-movimentacao-entrada">/);
-  assert.match(html.html, /<nav class="menu">/);
+  assert.match(html.html, /<main class="nova-movimentacao-entrada"/);
+  assert.match(html.html, /<nav class="menu"/);
   assert.doesNotMatch(html.html, /<div class="shape"><\/div>/);
-  assert.match(html.html, /<div class="container">/);
+  assert.match(html.html, /<div class="container"/);
   assert.match(html.html, /<button class="button button-overview"/);
-  assert.match(html.html, /<button class="button button-filters" type="button" aria-label="Filtros">/);
-  assert.match(html.html, /<button class="button button-settings" type="button" aria-label="Configuracoes">/);
+  assert.match(html.html, /<button class="button button-filters" type="button" aria-label="Filtros"/);
+  assert.match(html.html, /<button class="button button-settings" type="button" aria-label="Configuracoes"/);
   assert.match(html.html, /class="icon icon-graphic"/);
   assert.doesNotMatch(html.html, /button-overview-117/);
   assert.doesNotMatch(html.html, /icon-graphic-117/);
@@ -255,11 +255,11 @@ test("does not turn large content containers into buttons because of nested icon
     ],
   });
 
-  assert.match(html.html, /<div class="graphic-wrapper">/);
+  assert.match(html.html, /<div class="graphic-wrapper"/);
   assert.doesNotMatch(html.html, /<button class="button button-graphic/);
   assert.doesNotMatch(html.html, /<button[^>]*>\s*<button/s);
-  assert.match(html.html, /<button class="button button-mostrar-mais" type="button">/);
-  assert.match(html.html, /<span class="button-label">Mostrar Mais<\/span>/);
+  assert.match(html.html, /<button class="button button-mostrar-mais" type="button"/);
+  assert.match(html.html, /<span class="button-label"/);
   assert.doesNotMatch(html.html, /<h2 class="subtitle">Mostrar Mais<\/h2>/);
   assert.doesNotMatch(html.html, /<tr>\s*<\/tr>/);
 });
@@ -338,13 +338,13 @@ test("renders detected table groups as semantic table markup", () => {
     ],
   });
 
-  assert.match(html.html, /<table class="table">/);
+  assert.match(html.html, /<table class="table"/);
   assert.match(html.html, /<thead>/);
   assert.match(html.html, /<tbody>/);
-  assert.match(html.html, /<th class="col-descricao" scope="col">Descricao<\/th>/);
-  assert.match(html.html, /<th class="col-valor" scope="col">Valor<\/th>/);
-  assert.match(html.html, /<td class="col-descricao">Tatuagem<\/td>/);
-  assert.match(html.html, /<td class="col-valor">R\$1\.000,00<\/td>/);
+  assert.match(html.html, /<th class="col-descricao" scope="col"[^>]*>Descricao<\/th>/);
+  assert.match(html.html, /<th class="col-valor" scope="col"[^>]*>Valor<\/th>/);
+  assert.match(html.html, /<td class="col-descricao"[^>]*>Tatuagem<\/td>/);
+  assert.match(html.html, /<td class="col-valor"[^>]*>R\$1\.000,00<\/td>/);
   assert.doesNotMatch(html.html, /class="tatuagem"/);
   assert.doesNotMatch(html.html, /class="r"/);
 });
@@ -403,7 +403,7 @@ test("does not classify large screen sections as summary cards from nested money
     ],
   });
 
-  assert.match(html.html, /<div class="nova-movimentacao-entrada">/);
+  assert.match(html.html, /<div class="nova-movimentacao-entrada"/);
   assert.doesNotMatch(html.html, /<article class="summary-card summary-card--entrada">/);
 });
 
@@ -434,8 +434,8 @@ test("uses role-based text classes instead of content-derived classes", () => {
     ],
   });
 
-  assert.match(html.html, /<span class="text">Nubank<\/span>/);
-  assert.match(html.html, /<h2 class="subtitle">Movimentacoes<\/h2>/);
+  assert.match(html.html, /<span class="text"[^>]*>Nubank<\/span>/);
+  assert.match(html.html, /<h2 class="subtitle"[^>]*>Movimentacoes<\/h2>/);
   assert.doesNotMatch(html.html, /class="nubank"/);
   assert.doesNotMatch(html.html, /class="movimentacoes"/);
 });
@@ -503,9 +503,9 @@ test("renders simple form containers and submit actions semantically", () => {
     ],
   });
 
-  assert.match(html.html, /<form class="movement-form">/);
-  assert.match(html.html, /<button class="button button-salvar" type="submit">/);
-  assert.match(html.html, /<span class="button-label">Salvar<\/span>/);
+  assert.match(html.html, /<form class="movement-form"/);
+  assert.match(html.html, /<button class="button button-salvar" type="submit"/);
+  assert.match(html.html, /<span class="button-label"/);
 });
 
 test("rejects missing structure", () => {

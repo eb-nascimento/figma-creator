@@ -122,6 +122,20 @@ O usuário deve poder selecionar uma tela específica.
 
 ---
 
+## 🔹 RF04.1 — Normalização da Árvore do Figma
+
+A árvore do Figma pode vir desorganizada, com groups, rectangles, vectors, layoutMode null e ordem dos children diferente da ordem visual. O sistema deve criar uma etapa de normalização antes do HTML/CSS.
+
+### Regras:
+
+- Ordenar elementos por x/y/width/height, não apenas pela ordem dos children originais.
+- Detectar regiões principais por geometria.
+- Converter rectangles de fundo em estilo do container pai.
+- Separar árvore visual refinada da árvore semântica.
+- Gerar HTML/CSS a partir da árvore normalizada.
+
+---
+
 ## 🔹 RF05 — Extração de estrutura de layout
 
 O sistema deve interpretar o frame selecionado.
@@ -277,6 +291,15 @@ O sistema deve gerar CSS correspondente ao layout.
 - Utilizar flexbox ou grid quando necessário
 - Aplicar cores, espaçamentos e tipografia do Figma
 - Evitar estilos inline
+- **Ícones e Vetores Inline Reais (Sem Spans Vazios):** Gerar tags SVG inline para elementos identificados como `VECTOR`/ícones, preservando as propriedades `fill`, `stroke`, `opacity`, `stroke-width`, `width`, `height` e caminhos (`path` ou `vectorData`) reais do Figma para garantir a máxima fidelidade visual, sem usar spans vazios ou ícones genéricos substitutos.
+- **Fallback de Vetores Sem Caminho:** Caso um nó `VECTOR` não contenha dados de caminho válidos, marcar o nó explicitamente com `data-svg-fallback="true"`, renderizar um retângulo tracejado correspondente às suas dimensões reais e registrar um aviso (`console.warn`) de fallback explícito.
+- **Root Layout Fluido:** O frame principal (raiz) do Figma deve receber `width: 100%`, `max-width: 1920px` e `min-height: 100vh` para garantir adaptabilidade em resoluções ultra-wide.
+- **Elementos e Contêineres Flexíveis:** Evitar larguras fixas em cards, formulários, wrappers, seções e campos, definindo largura fluida de `100%`, `max-width` limitante ou `flex-basis` de acordo com a geometria de referência do Figma.
+- Preservar estritamente `font-family`, `font-size`, `font-weight`, `line-height`, `letter-spacing` e `text-align` por elemento nas folhas de estilo.
+- Utilizar coordenadas `x/y/width/height` de elementos filhos e contêineres para calcular dinamicamente propriedades de `padding`, `margin`, `gap` e alinhamentos contextuais.
+- Preservar altura de linhas, bordas, background, cor e alinhamento por célula de tabela. Aplicar padding interno e alinhamentos específicos para cards, botões e campos.
+- Quando necessário, criar seletores CSS específicos por modificador ou `[data-figma-id="xxx"]` para garantir que o estilo original de componentes específicos não seja sobrescrito por regras genéricas.
+- **Sobrescrita de Media Queries (Alta Prioridade):** As regras CSS responsivas nos breakpoints de `1024px`, `768px` e `480px` devem obrigatoriamente utilizar a diretiva `!important` em suas propriedades de layout, largura e altura para garantir a correta sobrescrita de seletores específicos e IDs do Figma (`[data-figma-id]`).
 
 ### Resultado:
 
@@ -518,23 +541,109 @@ Incluir também suporte a preview responsivo com modos desktop, tablet e mobile,
 
 Manter o SDD atualizado com todas as alterações, adições e decisões técnicas aplicadas, sem remover ou regredir requisitos já existentes.
 
-## 🔹 RF09 — Integração com IA (melhoria de código)
+## 🔹 RF09 — Fidelidade de Sombras, Tamanho de Pais, Radii de Botão e Bordas de Tabela (Correções de Alta Fidelidade)
 
-O sistema pode utilizar IA para melhorar o código gerado.
+Este requisito estabelece as especificações técnicas para sanar divergências visuais e estruturais finas identificadas no CSS gerado em relação ao Figma original.
 
-### Regras:
+### Regras de Sombras e Textos
+- **Sombras de Texto (text-shadow):** Elementos identificados como texto (`text`, `span`, `p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`) com efeitos de `DROP_SHADOW` no Figma devem mapear esses efeitos para a propriedade CSS `text-shadow` em vez de `box-shadow`.
+- **Omissão do Parâmetro Spread:** A propriedade `text-shadow` não suporta o parâmetro `spread` do CSS. O gerador deve omitir o spread-radius na montagem da string de sombra para evitar que o navegador rejeite a regra de estilo.
+- **Evitar Sombras Quadradas em Textos:** Nenhum elemento de texto puro ou wrapper de texto puro deve renderizar `box-shadow` retangular.
 
-- IA pode reorganizar HTML/CSS
-- IA pode sugerir melhorias de semântica
-- IA não pode alterar estrutura base sem solicitação
+### Regras de Dimensionamento de Pais (Min-Height vs Height)
+- **Crescimento de Nós Pai:** Divs ou elementos que atuam como contêineres pai (possuem nós filhos) e não são classificados como componentes pequenos (como botões ou inputs) devem, no modo `visual-first`, herdar a altura original do Figma como `min-height` em vez de um `height` rígido fixo. Isso garante que o nó pai expanda dinamicamente e jamais fique menor do que os seus filhos.
 
-### Resultado:
+### Regras de Radii e Sombras de Botão e Wrappers
+- **Mesclagem de Fundo Robusta:** Na normalização visual, a identificação de formas de fundo (`isBackgroundShape`) deve empregar um limiar de cobertura geométrica reduzido (de 0.85 para 0.70) para tolerar pequenas distorções de caixas delimitadoras causadas por sombras ou ícones salientes.
+- **Casamento de Contexto de Componente:** Se o elemento pai tem nome que sugere componente interativo ou campo (`botao`, `btn`, `button`, `salvar`, `cancelar`, `campo`, `field`, `input`, `select`, `segmented`, `card`), o limiar de cobertura de formas sem filhos para identificação como fundo é reduzido para 0.50.
+- **Herança de Radius Incondicional:** Ao mesclar um retângulo de fundo no pai, o `borderRadius`, `fills`, `strokes` e `effects` do fundo devem sobrescrever incondicionalmente as propriedades correspondentes do pai, garantindo que o border-radius do botão seja compilado no CSS final.
 
-- Código mais limpo e profissional
+### Regras de Linhas e Bordas de Tabela
+- **Desativação de Bordas Genéricas em Visual-First:** No modo `visual-first`, as células da tabela (`td` e `th`) não devem receber a regra de borda inferior padrão (`border-bottom`) de reset genérico caso o design do Figma já possua bordas explícitas extraídas dos nós, evitando a renderização de múltiplas linhas horizontais indesejadas e coladas no meio do item.
 
----
+## RF10 — Integração com IA para Melhoria do Código Gerado
 
-## 🔹 RF10 — Integração MCP (Model Context Protocol)
+O sistema deve permitir o uso de IA para revisar, melhorar e refinar o código HTML/CSS gerado a partir do Figma, sem substituir a estrutura base da conversão e sem alterar elementos essenciais sem solicitação do usuário.
+
+### Objetivo
+
+Apoiar a melhoria da qualidade do código gerado, tornando-o mais limpo, organizado, semântico e visualmente mais próximo do Figma, especialmente quando a geração determinística não conseguir resolver todos os detalhes de estilização.
+
+### Regras Funcionais
+
+- A IA deve atuar como uma etapa posterior à geração base de HTML/CSS.
+- A IA pode revisar HTML, CSS e metadados da árvore refinada.
+- A IA pode sugerir melhorias de semântica, nomenclatura, organização e reaproveitamento de classes.
+- A IA pode melhorar a fidelidade visual do CSS, considerando estilos extraídos do Figma.
+- A IA pode corrigir problemas de radius, espaçamentos, tamanhos, alinhamentos, tabela, botões, cards, inputs, selects, SVGs e hierarquia visual.
+- A IA pode utilizar os dados da árvore Figma, árvore normalizada, HTML gerado, CSS gerado e, futuramente, imagem/screenshot de referência.
+- A IA não deve alterar a estrutura base do HTML sem solicitação explícita do usuário.
+- A IA não deve remover `data-figma-id`, classes semânticas ou elementos necessários para rastreabilidade.
+- A IA não deve apagar regras funcionais já geradas sem justificar a alteração.
+- A IA deve preservar o objetivo do modo atual:
+  - `visual-first`: priorizar semelhança visual com o Figma;
+  - `responsivo`: priorizar adaptação web;
+  - `semântico`: priorizar estrutura limpa e acessível.
+- A IA deve poder operar em dois modos:
+  - **Sugestão**: aponta melhorias sem aplicar automaticamente.
+  - **Aplicação**: aplica ajustes no código gerado.
+- Toda alteração aplicada pela IA deve manter HTML e CSS sincronizados.
+- A IA deve retornar resumo curto do que foi alterado.
+- O sistema deve evitar que a IA reescreva tudo desnecessariamente.
+- O sistema deve registrar quando uma melhoria não puder ser aplicada por falta de dados do Figma.
+
+### Restrições
+
+- A IA não deve inventar componentes que não existam no Figma.
+- A IA não deve trocar o layout principal sem autorização.
+- A IA não deve remover elementos visuais importantes para simplificar o código.
+- A IA não deve quebrar a rastreabilidade entre Figma, HTML e CSS.
+- A IA não deve alterar o SDD ou regras do sistema sem solicitação específica.
+
+### Entradas possíveis para IA
+
+- Árvore original do Figma.
+- Árvore normalizada/refinada.
+- HTML gerado.
+- CSS gerado.
+- Modo de geração usado.
+- Logs de propriedades ignoradas.
+- Screenshot ou imagem de referência, em etapa futura.
+
+### Saídas esperadas
+
+- HTML/CSS revisado.
+- Lista curta de melhorias aplicadas.
+- Alertas sobre pontos não corrigidos.
+- Código mais limpo, fiel e profissional.
+
+### Critérios de Aceite
+
+**Dado** que o sistema gerou HTML e CSS  
+**Quando** o usuário solicitar melhoria com IA  
+**Então** a IA deve revisar o código sem remover a estrutura base.
+
+**Dado** que existam estilos do Figma não aplicados corretamente  
+**Quando** a IA revisar o CSS  
+**Então** ela deve tentar corrigir propriedades como radius, cores, fontes, tamanhos, bordas, sombras e espaçamentos.
+
+**Dado** que o HTML possua `data-figma-id`  
+**Quando** a IA melhorar o código  
+**Então** esses identificadores devem ser preservados.
+
+**Dado** que a IA não consiga corrigir um ponto visual  
+**Quando** finalizar a revisão  
+**Então** deve registrar o motivo de forma objetiva.
+
+**Dado** que o modo seja `visual-first`  
+**Quando** a IA aplicar melhorias  
+**Então** deve priorizar fidelidade visual ao Figma, não responsividade.
+
+### Observação Técnica
+
+A IA deve ser tratada como uma camada de refinamento, não como substituta da extração, normalização e geração base. A geração determinística continua responsável por criar a estrutura inicial; a IA atua para melhorar qualidade, fidelidade e acabamento.
+
+## 🔹 RF11 — Integração MCP (Model Context Protocol)
 
 O sistema deve expor funções como ferramentas (tools) via MCP.
 
@@ -551,11 +660,11 @@ O sistema deve expor funções como ferramentas (tools) via MCP.
 
 ---
 
-## 🔹 RF11 — Exportação do código gerado (NOVA FEATURE)
+## 🔹 RF12 — Exportação do código gerado (NOVA FEATURE)
 
 O sistema deve permitir exportar o código gerado em diferentes formatos.
 
-### 11.1 Exportação em ZIP
+### 12.1 Exportação em ZIP
 
 - Gerar pacote contendo:
   - index.html
@@ -570,7 +679,7 @@ O sistema deve permitir exportar o código gerado em diferentes formatos.
 
 ---
 
-### 11.2 Exportação para repositório Git local
+### 12.2 Exportação para repositório Git local
 
 - Criar estrutura de projeto automaticamente
 - Inicializar repositório Git
@@ -582,7 +691,7 @@ O sistema deve permitir exportar o código gerado em diferentes formatos.
 
 ---
 
-### 11.3 Exportação para GitHub (evolução futura)
+### 12.3 Exportação para GitHub (evolução futura)
 
 - Criar repositório via API do GitHub
 - Enviar arquivos automaticamente

@@ -4,6 +4,7 @@ const state = {
   extractedStructure: null,
   generatingHtml: false,
   generatedHtml: null,
+  refinedHtml: null,
   refiningHtml: false,
   selectedFrame: null,
   selectedFrameId: null,
@@ -11,6 +12,7 @@ const state = {
   extractingStructure: false,
   generatingCss: false,
   generatedCss: null,
+  previewMode: "desktop",
 };
 
 const elements = {
@@ -38,6 +40,10 @@ const elements = {
   structureJson: document.querySelector("#structure-json"),
   structureSummary: document.querySelector("#structure-summary"),
   generateExportButton: document.querySelector("#generate-export-button"),
+  previewFrame: document.querySelector("#result-preview"),
+  previewFrameShell: document.querySelector("#preview-frame-shell"),
+  previewModeButtons: document.querySelectorAll(".preview-mode-button"),
+  previewStatus: document.querySelector("#preview-status"),
 };
 
 function setFeedback(message, options = {}) {
@@ -207,17 +213,22 @@ function renderGeneratedHtml(payload) {
   state.generatedHtml = payload.html;
   elements.generatedHtml.textContent = payload.html;
   elements.refineHtmlButton.disabled = false;
+  resetPreview();
 }
 
 function resetRefinedHtmlPanel() {
+  state.refinedHtml = null;
   elements.refineHtmlButton.disabled = true;
   elements.refinedHtml.textContent = state.generatedHtml
     ? "Refine o HTML gerado antes de seguir para o CSS."
     : "Gere o HTML antes de refinar.";
+  resetPreview();
 }
 
 function renderRefinedHtml(payload) {
+  state.refinedHtml = payload.html;
   elements.refinedHtml.textContent = payload.html;
+  renderPreview();
 }
 
 function resetCssPanel() {
@@ -226,11 +237,121 @@ function resetCssPanel() {
   elements.generatedCss.textContent = state.selectedFrame
     ? "Extraia a estrutura antes de gerar CSS."
     : "Selecione um frame e extraia a estrutura antes de gerar CSS.";
+  resetPreview();
 }
 
 function renderGeneratedCss(payload) {
   state.generatedCss = payload.css;
   elements.generatedCss.textContent = payload.css;
+  renderPreview();
+}
+function resetPreview() {
+  if (elements.previewFrame) {
+    elements.previewFrame.srcdoc = "";
+  }
+
+  if (elements.previewStatus) {
+    elements.previewStatus.textContent = "Gere HTML refinado e CSS para visualizar.";
+    elements.previewStatus.classList.remove("error");
+  }
+}
+
+state.previewFitMode = "fit"; // default
+
+function updatePreviewScale() {
+  const iframe = elements.previewFrame;
+  const shell = elements.previewFrameShell;
+  const wrapper = document.querySelector("#preview-wrapper");
+  if (!iframe || !shell || !wrapper) return;
+
+  // Obter dimensões originais do figma
+  const figmaWidth = (state.extractedStructure && state.extractedStructure.layout && state.extractedStructure.layout.width) || 1920;
+  const figmaHeight = (state.extractedStructure && state.extractedStructure.layout && state.extractedStructure.layout.height) || 1080;
+
+  if (state.previewFitMode === "real") {
+    // Tamanho real com scroll
+    wrapper.style.width = `${figmaWidth}px`;
+    wrapper.style.height = `${figmaHeight}px`;
+    wrapper.style.transform = "none";
+    wrapper.style.marginRight = "0";
+    wrapper.style.marginBottom = "0";
+    shell.style.overflow = "auto";
+    shell.style.height = "auto";
+    shell.style.minHeight = "660px";
+  } else {
+    // Ajustar à tela com transform: scale
+    const shellWidth = shell.clientWidth - 24; // padding correction
+    
+    const scale = Math.min(shellWidth / figmaWidth, 1);
+
+    wrapper.style.width = `${figmaWidth}px`;
+    wrapper.style.height = `${figmaHeight}px`;
+    wrapper.style.transform = `scale(${scale})`;
+    wrapper.style.marginRight = `-${figmaWidth * (1 - scale)}px`;
+    wrapper.style.marginBottom = `-${figmaHeight * (1 - scale)}px`;
+    
+    shell.style.overflow = "hidden";
+    shell.style.height = `${figmaHeight * scale + 24}px`;
+    shell.style.minHeight = "auto";
+  }
+}
+
+function setPreviewMode(mode) {
+  state.previewMode = mode;
+  elements.previewFrameShell.className = `preview-frame-shell preview-frame-shell--${mode}`;
+  elements.previewModeButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.previewMode === mode));
+  });
+}
+
+function buildPreviewDocument(html, css) {
+  const safeCss = css || "";
+  const source = html || "";
+  const styleTag = `<style>${safeCss}</style>`;
+
+  if (/<\/head>/i.test(source)) {
+    return source.replace(/<\/head>/i, `${styleTag}</head>`);
+  }
+
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    ${styleTag}
+  </head>
+  <body>
+    ${source}
+  </body>
+</html>`;
+}
+
+function renderPreview() {
+  if (!elements.previewFrame) {
+    return;
+  }
+
+  if (!state.refinedHtml || !state.generatedCss) {
+    resetPreview();
+    return;
+  }
+
+  try {
+    elements.previewStatus.textContent = "Montando preview...";
+    elements.previewStatus.classList.remove("error");
+    elements.previewFrame.srcdoc = buildPreviewDocument(state.refinedHtml, state.generatedCss);
+    
+    // Agendar o cálculo de escala assim que o iframe renderizar
+    setTimeout(() => {
+      updatePreviewScale();
+    }, 100);
+
+    elements.previewStatus.textContent = `Preview atualizado em modo ${state.previewMode}.`;
+  } catch (error) {
+    elements.previewFrame.srcdoc = "";
+    elements.previewStatus.textContent = "Nao foi possivel renderizar o preview.";
+    elements.previewStatus.classList.add("error");
+  }
 }
 
 async function loadFrames(event) {
@@ -411,10 +532,13 @@ async function generateCss() {
   setFeedback("Gerando CSS...");
 
   try {
+    const modeSelect = document.querySelector("#generation-mode");
+    const mode = modeSelect ? modeSelect.value : "visual-first";
     const payload = await requestJson("/api/generate/css", {
       method: "POST",
       body: JSON.stringify({
         structure: state.extractedStructure,
+        mode: mode,
       }),
     });
 
@@ -439,10 +563,13 @@ async function generateExport() {
   setFeedback("Gerando exportação unificada...");
 
   try {
+    const modeSelect = document.querySelector("#generation-mode");
+    const mode = modeSelect ? modeSelect.value : "visual-first";
     const payload = await requestJson("/api/generate/export", {
       method: "POST",
       body: JSON.stringify({
         structure: state.extractedStructure,
+        mode: mode,
       }),
     });
 
@@ -484,6 +611,60 @@ elements.refineHtmlButton.addEventListener("click", refineHtml);
 elements.generateCssButton.addEventListener("click", generateCss);
 elements.generateExportButton.addEventListener("click", generateExport);
 
+elements.previewModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setPreviewMode(button.dataset.previewMode);
+    renderPreview();
+  });
+});
+
+const fitButton = document.querySelector("#preview-fit-button");
+const realButton = document.querySelector("#preview-real-button");
+
+if (fitButton && realButton) {
+  fitButton.addEventListener("click", () => {
+    state.previewFitMode = "fit";
+    fitButton.style.background = "var(--accent)";
+    fitButton.style.color = "white";
+    realButton.style.background = "transparent";
+    realButton.style.color = "var(--text)";
+    updatePreviewScale();
+  });
+
+  realButton.addEventListener("click", () => {
+    state.previewFitMode = "real";
+    realButton.style.background = "var(--accent)";
+    realButton.style.color = "white";
+    fitButton.style.background = "transparent";
+    fitButton.style.color = "var(--text)";
+    updatePreviewScale();
+  });
+}
+
+const newTabButton = document.querySelector("#preview-new-tab-button");
+if (newTabButton) {
+  newTabButton.addEventListener("click", () => {
+    if (!state.refinedHtml || !state.generatedCss) {
+      setFeedback("Gere o HTML refinado e o CSS antes de abrir em nova aba.", { error: true });
+      return;
+    }
+    const newWindow = window.open();
+    if (newWindow) {
+      const combined = buildPreviewDocument(state.refinedHtml, state.generatedCss);
+      newWindow.document.write(combined);
+      newWindow.document.close();
+    } else {
+      setFeedback("Pop-up bloqueado. Por favor, permita pop-ups para este site.", { error: true });
+    }
+  });
+}
+
+window.addEventListener("resize", () => {
+  if (state.refinedHtml && state.generatedCss) {
+    updatePreviewScale();
+  }
+});
+
 document.querySelectorAll(".copy-button").forEach(button => {
   button.addEventListener("click", async () => {
     const targetId = button.getAttribute("data-target");
@@ -503,6 +684,8 @@ document.querySelectorAll(".copy-button").forEach(button => {
     }
   });
 });
+
+setPreviewMode(state.previewMode);
 
 refreshAuthStatus().catch((error) => {
   setFeedback(error.message, { error: true });

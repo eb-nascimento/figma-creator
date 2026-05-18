@@ -87,6 +87,52 @@ function isDecorativeShapeNode(node) {
   );
 }
 
+function getSvgPaths(node) {
+  const paths = [];
+
+  const addGeometry = (geom) => {
+    if (Array.isArray(geom)) {
+      geom.forEach(g => {
+        if (g && typeof g.path === "string") {
+          paths.push(g.path);
+        }
+      });
+    } else if (geom && typeof geom.path === "string") {
+      paths.push(geom.path);
+    }
+  };
+
+  if (node.vectorData) {
+    if (typeof node.vectorData === "string") {
+      paths.push(node.vectorData);
+    } else if (typeof node.vectorData.path === "string") {
+      paths.push(node.vectorData.path);
+    } else if (Array.isArray(node.vectorData.paths)) {
+      node.vectorData.paths.forEach(p => {
+        if (typeof p === "string") paths.push(p);
+        else if (p && typeof p.path === "string") paths.push(p.path);
+      });
+    }
+  }
+
+  if (node.path && typeof node.path === "string") {
+    paths.push(node.path);
+  }
+
+  addGeometry(node.fillGeometry);
+  addGeometry(node.strokeGeometry);
+
+  if (Array.isArray(node.vectorPaths)) {
+    node.vectorPaths.forEach(vp => {
+      if (vp && typeof vp.path === "string") {
+        paths.push(vp.path);
+      }
+    });
+  }
+
+  return paths;
+}
+
 function getIconRole(node) {
   const compactName = toKebabCase(node.name).replace(/-/g, "");
   return ICON_NAME_MAP[compactName] || getNameParts(node)[0] || "graphic";
@@ -536,7 +582,7 @@ function getColumnClassName(headerText, index) {
 function renderTableCell(node, tag, className, level) {
   const scope = tag === "th" ? ' scope="col"' : "";
 
-  return `${indent(level)}<${tag} class="${className}"${scope}>${escapeHtml(
+  return `${indent(level)}<${tag} class="${className}"${scope} data-figma-id="${node.id}">${escapeHtml(
     node.text && node.text.characters
   )}</${tag}>`;
 }
@@ -550,7 +596,7 @@ function renderTableRow(rowNode, cellTag, columnNames, level) {
     .join("\n");
 
   return [
-    `${indent(level)}<tr>`,
+    `${indent(level)}<tr data-figma-id="${rowNode.id}">`,
     renderedCells,
     `${indent(level)}</tr>`,
   ].join("\n");
@@ -580,7 +626,7 @@ function renderTableNode(node, level) {
   ].join("\n");
 
   return [
-    `${indent(level)}<table class="table">`,
+    `${indent(level)}<table class="table" data-figma-id="${node.id}">`,
     thead,
     tbody,
     `${indent(level)}</table>`,
@@ -594,8 +640,8 @@ function renderSidebarNode(node, level) {
     .join("\n");
 
   return [
-    `${indent(level)}<aside class="sidebar">`,
-    `${indent(level + 1)}<nav class="sidebar-nav" aria-label="Menu principal">`,
+    `${indent(level)}<aside class="sidebar" data-figma-id="${node.id}">`,
+    `${indent(level + 1)}<nav class="sidebar-nav" aria-label="Menu principal" data-figma-id="${node.id}-nav">`,
     children,
     `${indent(level + 1)}</nav>`,
     `${indent(level)}</aside>`,
@@ -607,10 +653,16 @@ function renderSummaryCardNode(node, level) {
   const value = texts.find((text) => /R\$\s?\d/.test(text)) || "";
   const label = texts.find((text) => text !== value) || getNameParts(node).join(" ");
 
+  // Encontrar os ids originais dos textos para podermos estilizá-los especificamente via figma-id
+  const labelNode = (node.children || []).find(c => c.type === "text" && c.text && c.text.characters === label);
+  const valueNode = (node.children || []).find(c => c.type === "text" && c.text && c.text.characters === value);
+  const labelIdAttr = labelNode ? ` data-figma-id="${labelNode.id}"` : "";
+  const valueIdAttr = valueNode ? ` data-figma-id="${valueNode.id}"` : "";
+
   return [
-    `${indent(level)}<article class="${getBaseClassName(node, "article")}">`,
-    `${indent(level + 1)}<span class="summary-card__label">${escapeHtml(label)}</span>`,
-    `${indent(level + 1)}<strong class="summary-card__value">${escapeHtml(value)}</strong>`,
+    `${indent(level)}<article class="${getBaseClassName(node, "article")}" data-figma-id="${node.id}">`,
+    `${indent(level + 1)}<span class="summary-card__label"${labelIdAttr}>${escapeHtml(label)}</span>`,
+    `${indent(level + 1)}<strong class="summary-card__value"${valueIdAttr}>${escapeHtml(value)}</strong>`,
     `${indent(level)}</article>`,
   ].join("\n");
 }
@@ -618,36 +670,73 @@ function renderSummaryCardNode(node, level) {
 function renderFormField(node, level) {
   const role = getFieldRole(node);
   const id = `${role}-field`;
-  const text = getTextDescendants(node).join(" ").trim();
-  const label = role.charAt(0).toUpperCase() + role.slice(1);
-  let control = "";
-
-  if (role === "data") {
-    let dateVal = text;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
-      const [dd, mm, yyyy] = text.split("/");
-      dateVal = `${yyyy}-${mm}-${dd}`;
-    } else if (/^\d{2}\/\d{2}$/.test(text)) {
-      const [dd, mm] = text.split("/");
-      dateVal = `2025-${mm}-${dd}`;
+  
+  // Find all text descendants in visual order (y then x coordinate)
+  const textNodes = [];
+  function visit(curr) {
+    if (!curr) return;
+    if (curr.type === "text" && curr.text && curr.text.characters) {
+      textNodes.push(curr);
     }
-    control = `<input id="${id}" class="form-control" name="${role}" type="date" value="${escapeHtml(dateVal)}">`;
-  } else if (role === "valor") {
-    control = `<input id="${id}" class="form-control" name="${role}" type="text" inputmode="decimal" value="${escapeHtml(text)}">`;
-  } else if (role === "descricao") {
-    control = `<textarea id="${id}" class="form-control" name="${role}">${escapeHtml(text)}</textarea>`;
-  } else if (role === "categoria" || role === "metodo") {
-    control = `<select id="${id}" class="form-control" name="${role}">\n${indent(level + 2)}<option value="" disabled selected>Selecione</option>\n${indent(level + 1)}</select>`;
-  } else {
-    control = `<input id="${id}" class="form-control" name="${role}" type="text" value="${escapeHtml(text)}">`;
+    (curr.children || []).forEach(visit);
+  }
+  visit(node);
+  textNodes.sort((a, b) => {
+    const ay = a.layout && typeof a.layout.y === "number" ? a.layout.y : 0;
+    const by = b.layout && typeof b.layout.y === "number" ? b.layout.y : 0;
+    if (ay !== by) return ay - by;
+    const ax = a.layout && typeof a.layout.x === "number" ? a.layout.x : 0;
+    const bx = b.layout && typeof b.layout.x === "number" ? b.layout.x : 0;
+    return ax - bx;
+  });
+
+  let labelText = "";
+  let valueText = "";
+  
+  if (textNodes.length === 1) {
+    valueText = textNodes[0].text.characters.trim();
+  } else if (textNodes.length >= 2) {
+    labelText = textNodes[0].text.characters.trim();
+    valueText = textNodes.slice(1).map(n => n.text.characters).join(" ").trim();
   }
 
-  return [
-    `${indent(level)}<div class="form-field form-field--${role}">`,
-    `${indent(level + 1)}<label for="${id}">${label}</label>`,
-    `${indent(level + 1)}${control}`,
-    `${indent(level)}</div>`,
-  ].join("\n");
+  const label = labelText || (role.charAt(0).toUpperCase() + role.slice(1));
+  let control = "";
+  const figmaIdAttr = ` data-figma-id="${node.id}-control"`;
+  const placeholderAttr = valueText ? ` placeholder="${escapeHtml(valueText)}"` : "";
+
+  if (role === "data") {
+    let dateVal = "";
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(valueText)) {
+      const [dd, mm, yyyy] = valueText.split("/");
+      dateVal = `${yyyy}-${mm}-${dd}`;
+    } else if (/^\d{2}\/\d{2}$/.test(valueText)) {
+      const [dd, mm] = valueText.split("/");
+      dateVal = `2025-${mm}-${dd}`;
+    }
+    const valAttr = dateVal ? ` value="${escapeHtml(dateVal)}"` : "";
+    control = `<input id="${id}" class="form-control" name="${role}" type="date"${valAttr}${figmaIdAttr}>`;
+  } else if (role === "valor") {
+    control = `<input id="${id}" class="form-control" name="${role}" type="text" inputmode="decimal" value="${escapeHtml(valueText)}"${placeholderAttr}${figmaIdAttr}>`;
+  } else if (role === "descricao") {
+    control = `<textarea id="${id}" class="form-control" name="${role}"${placeholderAttr}${figmaIdAttr}>${escapeHtml(valueText)}</textarea>`;
+  } else if (role === "categoria" || role === "metodo") {
+    const optText = valueText || "Selecione";
+    control = `<select id="${id}" class="form-control" name="${role}"${figmaIdAttr}>\n${indent(level + 2)}<option value="" disabled selected>${escapeHtml(optText)}</option>\n${indent(level + 1)}</select>`;
+  } else {
+    control = `<input id="${id}" class="form-control" name="${role}" type="text" value="${escapeHtml(valueText)}"${placeholderAttr}${figmaIdAttr}>`;
+  }
+
+  const lines = [
+    `${indent(level)}<div class="form-field form-field--${role}" data-figma-id="${node.id}">`
+  ];
+  if (textNodes.length >= 2) {
+    lines.push(`${indent(level + 1)}<label for="${id}">${escapeHtml(label)}</label>`);
+  }
+  lines.push(`${indent(level + 1)}${control}`);
+  lines.push(`${indent(level)}</div>`);
+
+  return lines.join("\n");
 }
 
 function renderSegmentedControlNode(node, level) {
@@ -655,10 +744,10 @@ function renderSegmentedControlNode(node, level) {
     const label = getTextDescendants(c).join(" ").trim() || getNameParts(c)[0] || "Opção";
     const val = toKebabCase(label);
     const checked = idx === 0 ? " checked" : "";
-    return `${indent(level + 1)}<label class="segmented-control__option"><input type="radio" name="${toKebabCase(node.name)}" value="${val}"${checked}> <span>${escapeHtml(label)}</span></label>`;
+    return `${indent(level + 1)}<label class="segmented-control__option" data-figma-id="${c.id}"><input type="radio" name="${toKebabCase(node.name)}" value="${val}"${checked}> <span>${escapeHtml(label)}</span></label>`;
   });
   return [
-    `${indent(level)}<fieldset class="segmented-control">`,
+    `${indent(level)}<fieldset class="segmented-control" data-figma-id="${node.id}">`,
     `${indent(level + 1)}<legend class="sr-only">Opções</legend>`,
     ...options,
     `${indent(level)}</fieldset>`
@@ -700,17 +789,17 @@ function renderRefinedNode(
   }
 
   if (tag === "img") {
-    return `${indent(level)}<img class="${className}" src="" alt="${escapeHtml(node.name || "Imagem")}">`;
+    return `${indent(level)}<img class="${className}" src="" alt="${escapeHtml(node.name || "Imagem")}" data-figma-id="${node.id}">`;
   }
 
   if (node.type === "text") {
     if (isInteractive) {
-      return `${indent(level)}<span class="button-label">${escapeHtml(
+      return `${indent(level)}<span class="button-label" data-figma-id="${node.id}">${escapeHtml(
         node.text && node.text.characters
       )}</span>`;
     }
 
-    return `${indent(level)}<${tag} class="${className}">${escapeHtml(
+    return `${indent(level)}<${tag} class="${className}" data-figma-id="${node.id}">${escapeHtml(
       node.text && node.text.characters
     )}</${tag}>`;
   }
@@ -718,7 +807,60 @@ function renderRefinedNode(
   if (tag === "span") {
     const isDecorativeIconInButton = interactiveContext && interactiveContext.hasText;
     const ariaHidden = isGraphicIconNode(node) || isDecorativeIconInButton ? ' aria-hidden="true"' : "";
-    return `${indent(level)}<span class="${className}"${ariaHidden}></span>`;
+    
+    // 1. Tentar extrair paths reais do Figma
+    const realPaths = getSvgPaths(node);
+    
+    const layout = node.layout || {};
+    const width = typeof layout.width === "number" && !isNaN(layout.width) ? layout.width : 24;
+    const height = typeof layout.height === "number" && !isNaN(layout.height) ? layout.height : 24;
+    const style = node.style || {};
+    
+    const fill = style.fill ? `rgba(${style.fill.r}, ${style.fill.g}, ${style.fill.b}, ${style.fill.a})` : "none";
+    const stroke = style.stroke ? `rgba(${style.stroke.r}, ${style.stroke.g}, ${style.stroke.b}, ${style.stroke.a})` : "none";
+    const strokeWidth = style.strokeWeight || 2;
+    const opacityAttr = style.opacity !== undefined && style.opacity !== 1 ? ` opacity="${style.opacity}"` : "";
+
+    let fillAttr = fill;
+    let strokeAttr = stroke;
+    if (fill === "none" && stroke === "none") {
+      fillAttr = "currentColor";
+    }
+
+    const strokeWidthAttr = strokeWidth > 0 ? ` stroke-width="${strokeWidth}"` : "";
+
+    if (realPaths.length > 0) {
+      // 2. Usar vetor real do Figma
+      const pathElements = realPaths.map(p => `<path d="${p}"></path>`).join("");
+      return `${indent(level)}<svg class="${className}"${ariaHidden} data-figma-id="${node.id}" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" fill="${fillAttr}" stroke="${strokeAttr}"${strokeWidthAttr}${opacityAttr}>${pathElements}</svg>`;
+    } else {
+      // 3. Sem vetor real. Se for VECTOR figmaType, não usar ícones genéricos como círculo, plus ou funnel!
+      if (node.figmaType === "VECTOR" || node.type === "shape") {
+        console.warn(`[SVG Fallback] VECTOR Node "${node.name}" (${node.id}) is missing real path/vectorData. Rendering explicit fallback dashed rectangle.`);
+        const fallbackPath = `<rect x="2" y="2" width="${width - 4}" height="${height - 4}" rx="4" stroke-dasharray="4"></rect>`;
+        return `${indent(level)}<svg class="${className}"${ariaHidden} data-figma-id="${node.id}" data-svg-fallback="true" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${fallbackPath}</svg>`;
+      } else {
+        // Para nós que não são VECTOR do Figma, mas foram mapeados como ícone pelo nome, mantemos a rota de fallback genérico
+        const role = getIconRole(node);
+        let path = "";
+        if (role === "select" || role === "expand") {
+          path = '<polyline points="6 9 12 15 18 9"></polyline>';
+        } else if (role === "overview") {
+          path = '<rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect>';
+        } else if (role === "add") {
+          path = '<line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>';
+        } else if (role === "filter") {
+          path = '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>';
+        } else if (role === "settings") {
+          path = '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>';
+        } else if (role === "filters") {
+          path = '<line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>';
+        } else {
+          path = '<circle cx="12" cy="12" r="10"></circle>';
+        }
+        return `${indent(level)}<svg class="${className}"${ariaHidden} data-figma-id="${node.id}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+      }
+    }
   }
 
   const hasVisibleText = getTextDescendants(node).length > 0;
@@ -745,8 +887,8 @@ function renderRefinedNode(
     ? ` aria-label="${escapeHtml(getButtonLabel(node))}"`
     : "";
   const attributes = tag === "button"
-    ? ` class="${className}" type="${getButtonType(node)}"${ariaLabel}`
-    : ` class="${className}"`;
+    ? ` class="${className}" type="${getButtonType(node)}"${ariaLabel} data-figma-id="${node.id}"`
+    : ` class="${className}" data-figma-id="${node.id}"`;
 
   if (!children) {
     return `${indent(level)}<${tag}${attributes}></${tag}>`;

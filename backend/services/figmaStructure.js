@@ -90,6 +90,18 @@ function normalizeStyle(node) {
     })) : [],
     strokeWeight: roundNumber(node.strokeWeight),
     borderRadius: roundNumber(node.cornerRadius),
+    effects: Array.isArray(node.effects) ? node.effects
+      .filter((effect) => effect && effect.visible !== false)
+      .map((effect) => ({
+        type: effect.type,
+        color: effect.color ? normalizeColor(effect.color, 1) : null,
+        offset: effect.offset
+          ? { x: roundNumber(effect.offset.x), y: roundNumber(effect.offset.y) }
+          : null,
+        radius: roundNumber(effect.radius),
+        spread: roundNumber(effect.spread),
+      }))
+      : [],
   };
 }
 
@@ -109,6 +121,10 @@ function normalizeText(node) {
     letterSpacing: roundNumber(style.letterSpacing),
     textAlignHorizontal: style.textAlignHorizontal || null,
     textAlignVertical: style.textAlignVertical || null,
+    fills: Array.isArray(node.fills) ? node.fills.map(f => ({
+      type: f.type,
+      color: f.color ? normalizeColor(f.color, f.opacity ?? 1) : null
+    })) : [],
   };
 }
 
@@ -129,6 +145,13 @@ function normalizeFigmaNode(node) {
     layout: normalizeLayout(node),
     style: normalizeStyle(node),
     text: normalizeText(node),
+    // Preserve vector path info for high-fidelity SVGs
+    fillGeometry: node.fillGeometry || null,
+    strokeGeometry: node.strokeGeometry || null,
+    vectorPaths: node.vectorPaths || null,
+    vectorNetwork: node.vectorNetwork || null,
+    path: node.path || null,
+    vectorData: node.vectorData || null,
     children,
   };
 }
@@ -146,7 +169,7 @@ function summarizeStructure(structure) {
 
     summary.totalNodes += 1;
     summary.types[node.type] = (summary.types[node.type] || 0) + 1;
-    node.children.forEach(visit);
+    (node.children || []).forEach(visit);
   }
 
   visit(structure);
@@ -157,3 +180,6 @@ module.exports = {
   normalizeFigmaNode,
   summarizeStructure,
 };
+
+
+

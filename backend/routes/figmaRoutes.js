@@ -12,6 +12,7 @@ const {
   normalizeFigmaNode,
   summarizeStructure,
 } = require("../services/figmaStructure");
+const { normalizeVisualTree } = require("../services/figmaVisualTree");
 const { extractFigmaFileKey } = require("../services/figmaUrl");
 const { SESSION_COOKIE_NAME, getSession } = require("../services/sessionStore");
 const { getValidAccessToken } = require("../services/figmaOAuth");
@@ -126,7 +127,7 @@ async function handleFigmaFrameStructure(requestBody, requestContext = {}) {
 
   const nodes = await fetchFigmaNodes(fileKey, [frameId], { accessToken });
   const figmaNode = nodes[frameId] && nodes[frameId].document;
-  const structure = normalizeFigmaNode(figmaNode);
+  const structure = normalizeVisualTree(normalizeFigmaNode(figmaNode));
 
   if (!structure) {
     const error = new Error("Estrutura do frame nao encontrada no Figma.");

@@ -86,6 +86,18 @@ O usuario deve poder selecionar uma tela principal especifica retornada pela lis
 
 - Frame escolhido definido como alvo para as proximas etapas de processamento.
 
+## RF04.1 — Normalização da Árvore do Figma
+
+A árvore do Figma pode vir desorganizada, com groups, rectangles, vectors, layoutMode null e ordem dos children diferente da ordem visual. O sistema deve criar uma etapa de normalização antes do HTML/CSS.
+
+### Regras
+
+- Ordenar elementos por x/y/width/height, não apenas pela ordem dos children originais.
+- Detectar regiões principais por geometria.
+- Converter rectangles de fundo em estilo do container pai.
+- Separar árvore visual refinada da árvore semântica.
+- Gerar HTML/CSS a partir da árvore normalizada.
+
 ## RF05 - Extracao de estrutura de layout
 
 O sistema deve buscar a estrutura interna do frame selecionado e converter os nodes do Figma em uma arvore simplificada para processamento posterior.
@@ -109,7 +121,7 @@ O sistema deve buscar a estrutura interna do frame selecionado e converter os no
 
 ## RF06 - Geracao de HTML
 
-O sistema deve gerar uma estrutura HTML inicial a partir da arvore normalizada produzida pela RF05.
+O sistema deve gerar uma estrutura HTML inicial a partir da arvore normalizada produzida pela RF04.1.
 
 ### Regras
 
@@ -134,7 +146,7 @@ O sistema deve interpretar semanticamente a funcao dos elementos da tela antes d
 
 ### Regras gerais
 
-- O refinamento deve usar o HTML gerado na RF06 e a estrutura normalizada da RF05 como referencia.
+- O refinamento deve usar o HTML gerado na RF06 e a estrutura normalizada da RF04.1 como referencia.
 - As regras documentadas neste requisito representam os **critérios mínimos obrigatórios** da etapa pré-CSS. Refinamentos mais avançados (como nomeação final de classes, responsividade detalhada, componentização final, diferenciação avançada entre data grid/lista/grid e inferência completa de comportamento) poderão ser aprimorados em camadas posteriores.
 - A etapa deve classificar os elementos em uma arvore logica composta por tela, layout, regioes, secoes, componentes, elementos internos e decoracoes.
 - A classificacao nao deve depender apenas de aparencia, tamanho, cor ou posicao.
@@ -246,10 +258,11 @@ O sistema deve interpretar semanticamente a funcao dos elementos da tela antes d
 Para evitar divergência entre estrutura e estilo, a arquitetura do sistema exige que o HTML e o CSS sejam produzidos a partir de uma **mesma árvore intermediária refinada**.
 
 ### Fluxo de Geração
-1. **Refinamento da Árvore:** O sistema interpreta a árvore extraída do Figma e gera uma árvore semântica e visual refinada, injetando as tags, classes, componentes, modificadores e tokens diretamente nos nós.
-2. **Mutação Coordenada:** Se a análise visual/CSS exigir que um elemento precise de um contêiner (wrapper) para fins de responsividade (ex: `.table-wrapper` para transbordo horizontal), esse nó deve ser explicitamente adicionado à árvore refinada antes da geração do código final.
-3. **Produção Dupla:** A partir dessa árvore consolidada, o sistema gera o HTML e o CSS de forma coordenada, garantindo que o CSS consuma exatamente as classes declaradas nos nós e o HTML renderize a mesma estrutura.
-4. **Fallback:** O sistema pode manter a geração isolada de HTML ou CSS para fins de debug e compatibilidade, mas o fluxo principal de exportação deve ser sincronizado e integrado.
+1. **Normalizacao Visual:** Ocorre na etapa de Normalizacao Visual (RF04.1), produzindo uma arvore ordenada por geometria com regioes e layouts inferidos.
+2. **Refinamento da Árvore:** O sistema interpreta a árvore visual refinada e gera uma árvore semântica e visual consolidada, injetando as tags, classes, componentes, modificadores e tokens diretamente nos nós.
+3. **Mutação Coordenada:** Se a análise visual/CSS exigir que um elemento precise de um contêiner (wrapper) para fins de responsividade (ex: `.table-wrapper` para transbordo horizontal), esse nó deve ser explicitamente adicionado Ã  árvore refinada antes da geração do código final.
+4. **Produção Dupla:** A partir dessa árvore consolidada, o sistema gera o HTML e o CSS de forma coordenada, garantindo que o CSS consuma exatamente as classes declaradas nos nós e o HTML renderize a mesma estrutura.
+5. **Fallback:** O sistema pode manter a geração isolada de HTML ou CSS para fins de debug e compatibilidade, mas o fluxo principal de exportação deve ser sincronizado e integrado.
 
 ### Validação Pós-Geração
 A arquitetura exige uma validação de coerência após a geração do par HTML+CSS:
@@ -269,14 +282,39 @@ O código CSS gerado deve ser organizado em camadas: Tokens, Base/Reset, Layout,
 - **Flex e Grid Contextuais:** O layout deve refletir fielmente a tela, usando `display: grid` ou `display: flex` estritamente conforme o contexto do componente. É proibido aplicar `auto-fit` genérico para todas as seções.
 - As tags e estruturas nativas (tabelas, listas, thead, tbody, tr, td) devem manter seu comportamento de bloco/tabela, sem flexbox indiscriminado.
 
+### Regras de Fidelidade Visual
+
+- O CSS deve usar os dados visuais reais do Figma: posicao `x/y`, largura, altura, ordem visual, alinhamento, espacamentos, cores, bordas, raios, sombras, camadas, z-index, hierarquia visual e auto layout/frame quando existirem.
+- A ordem semantica do HTML deve ser preservada, evitando reordenação artificial no CSS que possa quebrar a acessibilidade e a semântica do documento.
+- E proibido aplicar cores fortes, dimensoes ou pesos visuais em classes genericas como `.subtitle`, `.text`, `.value` ou `.button` sem confirmar que esse uso corresponde ao elemento real no Figma.
+- E proibido centralizar telas, limitar largura com `max-width` ou aplicar `margin: 0 auto` por padrao quando isso nao existir ou nao puder ser inferido do frame original.
+- A responsividade deve derivar da estrutura visual real do frame, nao de suposicoes genericas.
+- A geracao so deve ser considerada concluida apos validacao visual contra o layout original, preferencialmente via RF08.
+- A normalizacao deve preservar efeitos visuais do Figma, como sombras, e fills de texto para uso posterior no CSS.
+- O CSS base de componentes genericos deve ser neutro; estilos fortes devem vir de regras especificas extraidas dos nodes.
+- E proibido gerar regras de `order` por `:nth-child` para compensar artificialmente o posicionamento, pois isso quebra a semântica e a acessibilidade da página.
+- **Ícones e Vetores Inline Reais (Sem Spans Vazios):** Gerar tags SVG inline para elementos identificados como `VECTOR`/ícones, preservando as propriedades `fill`, `stroke`, `opacity`, `stroke-width`, `width`, `height` e caminhos (`path` ou `vectorData`) reais do Figma para garantir a máxima fidelidade visual, sem usar spans vazios ou ícones genéricos substitutos.
+- **Fallback de Vetores Sem Caminho:** Caso um nó `VECTOR` não contenha dados de caminho válidos, marcar o nó explicitamente com `data-svg-fallback="true"`, renderizar um retângulo tracejado correspondente às suas dimensões reais e registrar um aviso (`console.warn`) de fallback explícito.
+- **Root Layout Fluido e Escala Zoom:** O frame principal (raiz) do Figma deve receber `width: 100%`, `max-width: 1920px` e `min-height: 100vh`. No preview, deve ser aplicada escala fluida por meio de regras de `@media` e propriedade `zoom` (ex: 0.85 para 1440px, 0.75 para 1200px, 0.65 para 1024px e resetando para `zoom: 1 !important` em 768px de mobile) de forma a garantir perfeita visibilidade sem quebras.
+- **Modo Visual-First e Elementos Flexíveis:** Priorizar a fidelidade ao Figma tratando separadamente componentes visuais pequenos (botões, inputs, selects, botões de menu, summary-cards ou elementos com altura < 200px) e containers macro. Componentes pequenos recebem `height` fixo estrito e `box-sizing: border-box` para evitar stretch vertical indevido. O uso de `flex-basis` e `width` é condicionado à direção do pai: no pai `column`, evita-se `flex-basis` (definindo `width: 100%` com `max-width` ou largura absoluta se < 250px) para não converter largura em altura indevida. Containers macro recebem `min-height` para crescer com conteúdo, evitando o uso simultâneo e conflituoso de `height + min-height + padding`.
+- **Tipografia Fiel e Clamping:** Preservar estritamente `font-family`, `font-size`, `font-weight`, `line-height`, `letter-spacing` e `text-align` por elemento. Títulos e fontes maiores ou iguais a 18px devem utilizar a função `clamp()` baseada no viewport (vw) para escalarem de forma fluida no preview desktop.
+- **Geometria Dinâmica e Inferência Inteligente:** Utilizar as coordenadas `x/y/width/height` para calcular dinamicamente `padding`, `margin`, `gap` e `flex-direction`. A inferência de direção de fluxo flexbox (`flex-direction: row` ou `column`) deve analisar se algum par de elementos adjacentes apresenta uma variação vertical (`y`) significativa maior que 25px ou 40% de sua altura, forçando `column` em vez de agrupar cegamente em `row` se o contêiner de elementos for vertical (ex: `.data-grid`).
+- **Preservação de Tabelas:** Manter a altura de linhas, bordas, background, cores e alinhamento por célula de tabela. Células de tabela (`th` e `td`) devem receber padding geométrico capado a no máximo 12px vertical e 16px horizontal, evitando distorções. Contêineres de tabela (`table`, `tr`, `thead`, `tbody`) ignoram paddings e gaps geométricos. O alinhamento das células é vertical centralizado (`vertical-align: middle`) com linhas divisórias inferiores (`border-bottom: 1px solid var(--color-border)`).
+- **Correção Cromática e Sombras:** O mapeamento de cores RGBA do Figma não deve inverter as variáveis `g` e `b` de verde/azul, garantindo correspondência exata.
+- **Seletores data-figma-id:** Quando necessário, criar seletores CSS específicos por modificador ou `[data-figma-id="xxx"]` para garantir que o estilo original de componentes específicos não seja sobrescrito por regras genéricas.
+- **Decoupling de Responsividade (Modo Visual-First):** Para preservar a integridade e fidelidade do layout original em telas de notebook/desktop (como em 1024px), a responsividade agressiva com `width: 100% !important` e desestruturação de componentes é totalmente desativada em 1024px, confiando na escala fluida do `zoom`. Regras responsivas agressivas aplicam-se apenas a partir de `@media (max-width: 768px)` e `@media (max-width: 480px)` com o uso de `!important` para sobrescrever propriedades de layout específicas e IDs do Figma (`[data-figma-id]`).
+
 ### Regras de Estilo de Componentes (Component Styling)
 - O CSS deve diferenciar claramente componente raiz, elemento filho, estado e modificador.
 - **Evitar especificidade acidental e estilos globais sujos:** Classes genéricas (ex: `.subtitle`, `.button`, `.icon`, `.form-control`) não devem receber dimensões fixas (widths, heights, margins arbitrárias) ou posicionamentos absolutos do Figma. Devem conter apenas estilos inerentes ao componente base.
 - **Componentes Completos Reutilizáveis:** O gerador deve injetar bases de estilo profissionais para componentes identificados como `.sidebar-nav`, `.movimentacoes`, `.campos`, `.segmented-control`, `.summary-card__label` e `.summary-card__value`.
 - **Layouts Coerentes de Telas:** Containers principais devem ter regras coerentes de fluxo continuo aplicadas ao seletor real emitido no HTML final, sem depender de uma tela de exemplo ou de uma classe fixa como `.screen`.
 - **Consistência de Estrutura:** Se o CSS exigir wrappers para responsividade (como `.table-wrapper` ou `.content-area`), a estrutura do HTML gerado (Refiner) deve ser consistentemente atualizada para incluir esses wrappers e suas respectivas classes.
-- **Formulários:** A classe `.form-control` é estritamente designada como classe de componente interativo nativo (aplicada em `input`, `select`, `textarea`), não como um contêiner (wrapper).
-- **Outros:** `.button`, `.summary-card`, `.sidebar`, `.segmented-control`, `.icon` (ícones devem receber propriedades inerentes como `flex-shrink: 0`, `display`, e controle rígido de `width`/`height`).
+- **Reset Visual de Campos e Escala de Botões (Visual Reset & Control Sizing):**
+  - **Aparência Nativa:** Aplicar `appearance: none` e remover bordas, margins, paddings, backgrounds e fontes nativos para `input`, `select`, `textarea`, `button`, `fieldset` e `label`.
+  - **Herança e Delegação:** O CSS de contêineres identificados como campos de formulário (`.form-field`) deve transferir seus atributos visuais (como `background-color`, `border`, `border-radius`, `box-shadow`, tipografia e `padding`) para o controle interno real (`[data-figma-id="xxx-control"]`), mantendo o contêiner externo `.form-field` neutro para fins de layout flexbox.
+  - **Sizing de Botão e inputs:** Botões nativos e de classes de botões específicos devem usar `box-sizing: border-box`, largura fluida com `max-width` limitante baseado nas dimensões reais do Figma, e altura fixa `height` para botões (zerando conflitos de paddings verticais) e inputs.
+  - **Escalabilidade Responsiva de Controles:** Reduzir dinamicamente nos breakpoints de `1024px`, `768px` e `480px` as fontes de controles, gaps e paddings, além de forçar alturas adequadas nos inputs e botões (`min-height` e `height`) para perfeito manuseio em telas móveis.
 - **Botões:** O estilo base `.button` deve prever uma cor de texto universal e comportamentos de hover/active. Além do base, botões mais específicos/reais identificados do Figma (ex: `.button-mostrar-mais`, `.button-filtro`, `.button-salvar`) devem receber especializações adequadas ao invés de classes vazias, priorizando seus tokens.
 
 ## RF07.1 - Responsividade do Codigo Gerado
@@ -307,3 +345,40 @@ O sistema deve complementar o CSS base do RF07 com regras responsivas geradas a 
 - O gerador deve corrigir seletores inválidos (ex: união cega de classes `.form-field.form-field--valor.label`). O sistema usará preferencialmente seletores descendentes limpos.
 - **Especialização Controlada:** Modificadores e classes muito específicas só devem receber as diferenças de estilo (ex: larguras e cores específicas), preservando o CSS base daquele componente sem duplicação de atributos (ex: não duplicar os atributos comuns de botão dentro de `.button--primary`).
 - Os tokens consumidos pelas regras CSS devem **garantidamente** ter sido declarados na camada de `:root`, evitando variáveis vazias. O gerador de CSS deve injetar *fallbacks* padrão no `:root` (ex: `--color-text-secondary`) caso o motor não tenha extraído essas cores do Figma. O token do fundo da página deve usar explicitamente `--color-surface-alt` sempre que este diferir do surface principal, prevenindo falhas de contaste de fundos genéricos.
+
+## RF08 - Preview do Resultado
+
+O sistema deve renderizar o HTML refinado e o CSS gerado em uma area de preview isolada da interface principal.
+
+### Regras implementadas
+
+- Renderizar o preview em `iframe` usando `srcdoc`.
+- Injetar o CSS gerado em um bloco `<style>` dentro do HTML refinado.
+- Usar `sandbox=""` no iframe para bloquear scripts na implementacao inicial.
+- Atualizar o preview automaticamente quando o HTML refinado ou o CSS gerado/exportado mudarem.
+- Exibir estado de espera quando ainda nao houver HTML refinado e CSS disponiveis.
+- Exibir estado de montagem e estado de erro quando o preview nao puder ser renderizado.
+- Limpar o iframe ao trocar estrutura, HTML ou CSS para evitar preview de versao antiga.
+- Oferecer modos Desktop, Tablet e Mobile ajustando apenas a largura do contenedor do iframe.
+- Preservar o isolamento para impedir que o CSS gerado afete a interface do Figma Creator.
+
+## RF09 - Fidelidade de Sombras, Tamanho de Pais, Radii de Botão e Bordas de Tabela (Correções de Alta Fidelidade)
+
+Este requisito estabelece as especificações técnicas para sanar divergências visuais e estruturais finas identificadas no CSS gerado em relação ao Figma original.
+
+### Regras de Sombras e Textos
+- **Sombras de Texto (text-shadow):** Elementos identificados como texto (`text`, `span`, `p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`) com efeitos de `DROP_SHADOW` no Figma devem obrigatoriamente mapear esses efeitos para a propriedade CSS `text-shadow` em vez de `box-shadow`. 
+- **Remoção de Parâmetro Spread:** A propriedade `text-shadow` não suporta o parâmetro `spread` do CSS. O gerador deve omitir o spread-radius na montagem da string de sombra para evitar que o navegador rejeite a regra de estilo.
+- **Evitar Sombras Quadradas em Textos:** Nenhum elemento de texto puro ou wrapper de texto puro deve renderizar `box-shadow` retangular simulando uma sombra que deveria cobrir o formato dos caracteres da fonte.
+
+### Regras de Dimensionamento de Pais (Min-Height vs Height)
+- **Crescimento de Nós Pai:** Divs ou elementos que atuam como contêineres pai (possuem nós filhos) e não são classificados como componentes pequenos (como botões ou inputs) devem, no modo `visual-first`, herdar a altura original do Figma como `min-height` em vez de um `height` rígido fixo. Isso garante que, caso o conteúdo interno cresça, sofra quebras de linha ou sofra pequenas variações de renderização de fontes, o nó pai expanda dinamicamente e jamais fique menor do que os seus filhos.
+
+### Regras de Radii e Sombras de Botão e Wrappers
+- **Mesclagem de Fundo Robusta:** Na normalização visual, a identificação de formas de fundo (`isBackgroundShape`) deve empregar um limiar de cobertura geométrica reduzido (de 0.85 para 0.70) para tolerar pequenas distorções de caixas delimitadoras causadas por sombras ou ícones salientes.
+- **Casamento de Contexto de Componente:** Se o elemento pai tem nome que sugere componente interativo ou campo (`botao`, `btn`, `button`, `salvar`, `cancelar`, `campo`, `field`, `input`, `select`, `segmented`, `card`), o limiar de cobertura de formas sem filhos para identificação como fundo é reduzido para 0.50.
+- **Herança de Radius Incondicional:** Ao mesclar um retângulo de fundo no pai, o `borderRadius`, `fills`, `strokes` e `effects` do fundo devem sobrescrever incondicionalmente as propriedades correspondentes do pai (que podem estar inicialmente indefinidas ou vazias no nó de agrupamento do Figma), garantindo que o border-radius do botão seja compilado no CSS final.
+
+### Regras de Linhas e Bordas de Tabela
+- **Desativação de Bordas Genéricas em Visual-First:** No modo `visual-first`, as células da tabela (`td` e `th`) não devem receber a regra de borda inferior padrão (`border-bottom`) de reset genérico caso o design do Figma já possua bordas explícitas extraídas dos nós, evitando a renderização de múltiplas linhas horizontais indesejadas e coladas no meio do item.
+
