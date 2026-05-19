@@ -122,10 +122,7 @@ async function requestListener(request, response) {
     return;
   }
 
-  if (
-    request.method === "GET" &&
-    ["/", "/app.js", "/styles.css"].includes(requestUrl.pathname)
-  ) {
+  if (request.method === "GET") {
     const served = await sendStaticFile(request, response, requestUrl.pathname);
 
     if (served) {

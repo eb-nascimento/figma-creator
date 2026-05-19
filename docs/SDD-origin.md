@@ -531,6 +531,13 @@ Evitar execução indevida de scripts no preview, principalmente se o HTML gerad
 
 Preferencialmente, o preview deve ser renderizado em `iframe` usando o HTML e CSS finais sincronizados. Isso reduz conflitos de estilo, melhora o isolamento e permite validar o resultado visual com mais segurança.
 
+## Decisão Técnica Aplicada
+
+- O servidor pode servir páginas estáticas adicionais da pasta `frontend/`, mantendo a rota principal `/` para o Figma Creator.
+- A implementação deve converter o contexto MCP do Figma para HTML/CSS nativo do projeto, sem instalar React, Tailwind ou dependências novas.
+- A estrutura deve preservar semântica e acessibilidade: formulário real, radio group para entrada/saída, cards de resumo com `article`, tabela com `thead`, `tbody` e `th scope="col"`, além de sidebar com `aside` e `nav`.
+- A página estática serve como validação visual isolada e não deve interferir no fluxo principal de importação, geração e preview.
+
 ## Prompt curto para Codex
 
 Melhorar o RF08 — Preview do Resultado.
@@ -546,19 +553,23 @@ Manter o SDD atualizado com todas as alterações, adições e decisões técnic
 Este requisito estabelece as especificações técnicas para sanar divergências visuais e estruturais finas identificadas no CSS gerado em relação ao Figma original.
 
 ### Regras de Sombras e Textos
+
 - **Sombras de Texto (text-shadow):** Elementos identificados como texto (`text`, `span`, `p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`) com efeitos de `DROP_SHADOW` no Figma devem mapear esses efeitos para a propriedade CSS `text-shadow` em vez de `box-shadow`.
 - **Omissão do Parâmetro Spread:** A propriedade `text-shadow` não suporta o parâmetro `spread` do CSS. O gerador deve omitir o spread-radius na montagem da string de sombra para evitar que o navegador rejeite a regra de estilo.
 - **Evitar Sombras Quadradas em Textos:** Nenhum elemento de texto puro ou wrapper de texto puro deve renderizar `box-shadow` retangular.
 
 ### Regras de Dimensionamento de Pais (Min-Height vs Height)
+
 - **Crescimento de Nós Pai:** Divs ou elementos que atuam como contêineres pai (possuem nós filhos) e não são classificados como componentes pequenos (como botões ou inputs) devem, no modo `visual-first`, herdar a altura original do Figma como `min-height` em vez de um `height` rígido fixo. Isso garante que o nó pai expanda dinamicamente e jamais fique menor do que os seus filhos.
 
 ### Regras de Radii e Sombras de Botão e Wrappers
+
 - **Mesclagem de Fundo Robusta:** Na normalização visual, a identificação de formas de fundo (`isBackgroundShape`) deve empregar um limiar de cobertura geométrica reduzido (de 0.85 para 0.70) para tolerar pequenas distorções de caixas delimitadoras causadas por sombras ou ícones salientes.
 - **Casamento de Contexto de Componente:** Se o elemento pai tem nome que sugere componente interativo ou campo (`botao`, `btn`, `button`, `salvar`, `cancelar`, `campo`, `field`, `input`, `select`, `segmented`, `card`), o limiar de cobertura de formas sem filhos para identificação como fundo é reduzido para 0.50.
 - **Herança de Radius Incondicional:** Ao mesclar um retângulo de fundo no pai, o `borderRadius`, `fills`, `strokes` e `effects` do fundo devem sobrescrever incondicionalmente as propriedades correspondentes do pai, garantindo que o border-radius do botão seja compilado no CSS final.
 
 ### Regras de Linhas e Bordas de Tabela
+
 - **Desativação de Bordas Genéricas em Visual-First:** No modo `visual-first`, as células da tabela (`td` e `th`) não devem receber a regra de borda inferior padrão (`border-bottom`) de reset genérico caso o design do Figma já possua bordas explícitas extraídas dos nós, evitando a renderização de múltiplas linhas horizontais indesejadas e coladas no meio do item.
 
 ## RF10 — Integração com IA para Melhoria do Código Gerado

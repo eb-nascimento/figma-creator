@@ -1,0 +1,5 @@
+[mcp_servers.figma]
+url = "http://127.0.0.1:3845/mcp"
+enabled = true
+startup_timeout_sec = 30
+tool_timeout_sec = 120
