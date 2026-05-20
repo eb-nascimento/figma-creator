@@ -580,8 +580,22 @@ O sistema deve permitir o uso de IA para revisar, melhorar e refinar o código H
 
 Apoiar a melhoria da qualidade do código gerado, tornando-o mais limpo, organizado, semântico e visualmente mais próximo do Figma, especialmente quando a geração determinística não conseguir resolver todos os detalhes de estilização.
 
+### Estrategia MCP consolidada
+
+- A IA pode usar contexto adicional do Figma via MCP quando disponivel.
+- O MCP deve ser tratado como recurso opcional para ambiente de desenvolvimento/agentes, nao como obrigacao do usuario final.
+- O fluxo MCP e baseado em link do Figma: o usuario/dev fornece o link exato do frame, no ou componente.
+- Exemplo de uso: `Use o MCP do Figma para ler este frame: @link-do-figma`.
+- A IA deve usar o MCP para apoiar fidelidade visual, comparacao com o design e melhoria do HTML/CSS.
+- O MCP nao substitui a arvore extraida, a normalizacao nem a geracao base; ele complementa o contexto.
+- Para usuario final futuro, o fluxo ideal deve ser integracao propria com Figma/API/OAuth, sem exigir VS Code, Codex, Dev Mode ou configuracao manual de MCP.
+- A IA deve preservar estrutura base, `data-figma-id`, rastreabilidade e modo ativo: `visual-first`, `responsivo` ou `semantico`.
+- No `visual-first`, a IA pode usar tamanhos fixos do Figma para adiantar a estilização; nao precisa ser a versao final.
+- Quando o MCP nao estiver disponivel, o sistema deve continuar usando HTML, CSS, arvore Figma extraida, arvore normalizada e logs.
+
 ### Regras Funcionais
 
+- A IA pode utilizar contexto adicional via MCP quando disponível, especialmente para consultar informações do Figma. O MCP não é obrigatório para o fluxo principal e não deve ser exigido do usuário final.
 - A IA deve atuar como uma etapa posterior à geração base de HTML/CSS.
 - A IA pode revisar HTML, CSS e metadados da árvore refinada.
 - A IA pode sugerir melhorias de semântica, nomenclatura, organização e reaproveitamento de classes.
@@ -653,6 +667,14 @@ Apoiar a melhoria da qualidade do código gerado, tornando-o mais limpo, organiz
 ### Observação Técnica
 
 A IA deve ser tratada como uma camada de refinamento, não como substituta da extração, normalização e geração base. A geração determinística continua responsável por criar a estrutura inicial; a IA atua para melhorar qualidade, fidelidade e acabamento.
+
+### Implementação inicial
+
+- O backend expõe `POST /api/generate/ai/context` para montar um pacote de contexto para IA/agente.
+- O pacote inclui prompt, restrições, modo ativo, estrutura Figma normalizada, HTML, CSS, logs e link MCP opcional.
+- A interface pode oferecer botão específico para gerar contexto IA/MCP, mas deve reaproveitar a URL do Figma informada no início do fluxo, sem criar campo adicional de link nesta etapa.
+- Esta etapa não chama provedor de IA nem exige MCP ativo; ela prepara o contexto para uso interno/agente/dev e preserva o fluxo local quando MCP não estiver disponível.
+- Exportação unificada, ZIP, Git ou GitHub ficam para RF posterior e não devem aparecer na UI desta etapa.
 
 ## 🔹 RF11 — Integração MCP (Model Context Protocol)
 

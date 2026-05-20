@@ -2,6 +2,7 @@ const { generateHtml } = require("../services/htmlGenerator");
 const { refineHtml } = require("../services/htmlRefiner");
 const { generateCss } = require("../services/cssGenerator");
 const { normalizeVisualTree } = require("../services/figmaVisualTree");
+const { buildAiImprovementContext } = require("../services/aiImprovementContext");
 
 function getVisualStructure(structure) {
   if (!structure) {
@@ -38,21 +39,16 @@ function handleGenerateCss(requestBody) {
   };
 }
 
-function handleGenerateAll(requestBody) {
-  // A única fonte de verdade: refinamento único
-  const result = refineHtml(getVisualStructure(requestBody.structure));
-  const css = generateCss(result.structure, "", { mode: requestBody.mode || "visual-first" });
-
-  return {
-    html: result.html,
-    css,
-    structure: result.structure,
-  };
+function handleGenerateAiContext(requestBody) {
+  return buildAiImprovementContext({
+    ...requestBody,
+    structure: getVisualStructure(requestBody.structure),
+  });
 }
 
 module.exports = {
   handleGenerateHtml,
   handleRefineHtml,
   handleGenerateCss,
-  handleGenerateAll,
+  handleGenerateAiContext,
 };

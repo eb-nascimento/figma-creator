@@ -1,0 +1,6 @@
+- Usar MCP do Figma quando a tarefa envolver layout, tela ou estilos do Figma.
+- Não editar linha por linha; aplicar alterações em bloco único/consolidado.
+- Manter SDD atualizado.
+- Não remover nem regredir requisitos existentes.
+- Preservar data-figma-id quando houver.
+- No visual-first, priorizar fidelidade visual, podendo usar tamanhos fixos.

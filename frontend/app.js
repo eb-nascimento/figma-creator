@@ -13,6 +13,8 @@ const state = {
   generatingCss: false,
   generatedCss: null,
   previewMode: "desktop",
+  generatingAiContext: false,
+  aiContext: null,
 };
 
 const elements = {
@@ -32,6 +34,8 @@ const elements = {
   refineHtmlButton: document.querySelector("#refine-html-button"),
   generateCssButton: document.querySelector("#generate-css-button"),
   generatedCss: document.querySelector("#generated-css"),
+  generateAiContextButton: document.querySelector("#generate-ai-context-button"),
+  aiContextJson: document.querySelector("#ai-context-json"),
   selectedId: document.querySelector("#selected-id"),
   selectedName: document.querySelector("#selected-name"),
   selectedPage: document.querySelector("#selected-page"),
@@ -39,7 +43,6 @@ const elements = {
   selectionEmpty: document.querySelector("#selection-empty"),
   structureJson: document.querySelector("#structure-json"),
   structureSummary: document.querySelector("#structure-summary"),
-  generateExportButton: document.querySelector("#generate-export-button"),
   previewFrame: document.querySelector("#result-preview"),
   previewFrameShell: document.querySelector("#preview-frame-shell"),
   previewModeButtons: document.querySelectorAll(".preview-mode-button"),
@@ -82,10 +85,17 @@ function setCssLoading(isLoading) {
   elements.generateCssButton.textContent = isLoading ? "Gerando..." : "Gerar CSS";
 }
 
-function setExportLoading(isLoading) {
-  state.generatingExport = isLoading;
-  elements.generateExportButton.disabled = isLoading || !state.extractedStructure;
-  elements.generateExportButton.textContent = isLoading ? "Exportando..." : "Exportar Código";
+function setAiContextLoading(isLoading) {
+  state.generatingAiContext = isLoading;
+
+  if (!elements.generateAiContextButton) {
+    return;
+  }
+
+  elements.generateAiContextButton.disabled = isLoading || !state.extractedStructure;
+  elements.generateAiContextButton.textContent = isLoading
+    ? "Gerando..."
+    : "Gerar contexto MCP";
 }
 
 async function requestJson(url, options = {}) {
@@ -185,6 +195,7 @@ function resetStructurePanel() {
     : "Selecione um frame e extraia a estrutura.";
   resetHtmlPanel();
   resetCssPanel();
+  resetAiContextPanel();
 }
 
 function renderStructure(payload) {
@@ -198,6 +209,9 @@ function renderStructure(payload) {
   state.extractedStructure = payload.structure;
   elements.generateHtmlButton.disabled = false;
   elements.generateCssButton.disabled = false;
+  if (elements.generateAiContextButton) {
+    elements.generateAiContextButton.disabled = false;
+  }
 }
 
 function resetHtmlPanel() {
@@ -213,6 +227,7 @@ function renderGeneratedHtml(payload) {
   state.generatedHtml = payload.html;
   elements.generatedHtml.textContent = payload.html;
   elements.refineHtmlButton.disabled = false;
+  resetAiContextPanel();
   resetPreview();
 }
 
@@ -228,6 +243,7 @@ function resetRefinedHtmlPanel() {
 function renderRefinedHtml(payload) {
   state.refinedHtml = payload.html;
   elements.refinedHtml.textContent = payload.html;
+  resetAiContextPanel();
   renderPreview();
 }
 
@@ -243,8 +259,31 @@ function resetCssPanel() {
 function renderGeneratedCss(payload) {
   state.generatedCss = payload.css;
   elements.generatedCss.textContent = payload.css;
+  resetAiContextPanel();
   renderPreview();
 }
+
+function resetAiContextPanel() {
+  state.aiContext = null;
+
+  if (!elements.aiContextJson || !elements.generateAiContextButton) {
+    return;
+  }
+
+  elements.generateAiContextButton.disabled = !state.extractedStructure;
+  elements.aiContextJson.textContent = state.extractedStructure
+    ? "Gere o contexto IA/MCP usando a URL do Figma informada no topo."
+    : "Extraia a estrutura antes de gerar o contexto IA/MCP.";
+}
+
+function renderAiContext(payload) {
+  state.aiContext = payload;
+
+  if (elements.aiContextJson) {
+    elements.aiContextJson.textContent = JSON.stringify(payload, null, 2);
+  }
+}
+
 function resetPreview() {
   if (elements.previewFrame) {
     elements.previewFrame.srcdoc = "";
@@ -551,39 +590,47 @@ async function generateCss() {
   }
 }
 
-async function generateExport() {
+async function generateAiContext() {
   if (!state.extractedStructure) {
-    setFeedback("Extraia a estrutura antes de exportar.", { error: true });
+    setFeedback("Extraia a estrutura antes de gerar o contexto IA/MCP.", { error: true });
     return;
   }
 
-  setExportLoading(true);
-  elements.refinedHtml.textContent = "Gerando exportação...";
-  elements.generatedCss.textContent = "Gerando exportação...";
-  setFeedback("Gerando exportação unificada...");
+  const figmaLink = elements.figmaUrl.value.trim();
+  const modeSelect = document.querySelector("#generation-mode");
+  const mode = modeSelect ? modeSelect.value : "visual-first";
+
+  setAiContextLoading(true);
+
+  if (elements.aiContextJson) {
+    elements.aiContextJson.textContent = "Gerando contexto para IA/agente...";
+  }
+
+  setFeedback("Gerando contexto IA/MCP...");
 
   try {
-    const modeSelect = document.querySelector("#generation-mode");
-    const mode = modeSelect ? modeSelect.value : "visual-first";
-    const payload = await requestJson("/api/generate/export", {
+    const payload = await requestJson("/api/generate/ai/context", {
       method: "POST",
       body: JSON.stringify({
         structure: state.extractedStructure,
-        mode: mode,
+        html: state.refinedHtml || state.generatedHtml || "",
+        css: state.generatedCss || "",
+        mode,
+        figmaLink,
+        logs: [],
       }),
     });
 
-    if (payload.structure) {
-      state.extractedStructure = payload.structure;
-    }
-    
-    renderRefinedHtml(payload);
-    renderGeneratedCss(payload);
-    setFeedback("Exportação unificada concluída com sucesso.");
+    renderAiContext(payload);
+    setFeedback(
+      payload.summary && payload.summary.hasMcpLink
+        ? "Contexto IA/MCP gerado usando a URL do Figma."
+        : "Contexto IA gerado sem link MCP. Fluxo local preservado."
+    );
   } catch (error) {
     setFeedback(error.message, { error: true });
   } finally {
-    setExportLoading(false);
+    setAiContextLoading(false);
   }
 }
 
@@ -609,7 +656,9 @@ elements.figmaForm.addEventListener("submit", loadFrames);
 elements.generateHtmlButton.addEventListener("click", generateHtml);
 elements.refineHtmlButton.addEventListener("click", refineHtml);
 elements.generateCssButton.addEventListener("click", generateCss);
-elements.generateExportButton.addEventListener("click", generateExport);
+if (elements.generateAiContextButton) {
+  elements.generateAiContextButton.addEventListener("click", generateAiContext);
+}
 
 elements.previewModeButtons.forEach((button) => {
   button.addEventListener("click", () => {

@@ -394,3 +394,35 @@ Este requisito estabelece as especificações técnicas para sanar divergências
 ### Regras de Linhas e Bordas de Tabela
 
 - **Desativação de Bordas Genéricas em Visual-First:** No modo `visual-first`, as células da tabela (`td` e `th`) não devem receber a regra de borda inferior padrão (`border-bottom`) de reset genérico caso o design do Figma já possua bordas explícitas extraídas dos nós, evitando a renderização de múltiplas linhas horizontais indesejadas e coladas no meio do item.
+
+## RF10 - Integracao com IA para Melhoria do Codigo Gerado
+
+O sistema deve permitir uso de IA para revisar e melhorar HTML/CSS gerados sem substituir a extracao, a normalizacao, a arvore refinada ou a geracao base.
+
+### Estrategia com Figma MCP
+
+- A IA pode usar contexto adicional do Figma via MCP quando disponivel.
+- O MCP e recurso opcional para ambiente de desenvolvimento/agentes, nao obrigacao do usuario final.
+- O fluxo MCP parte de link exato do Figma informado pelo usuario/dev para frame, no ou componente.
+- Exemplo de uso: `Use o MCP do Figma para ler este frame: @link-do-figma`.
+- A IA deve usar o MCP para apoiar fidelidade visual, comparacao com o design e melhoria de HTML/CSS.
+- O MCP complementa o contexto; nao substitui arvore extraida, normalizacao visual, arvore semantica nem geracao base.
+- Para usuario final futuro, o fluxo ideal deve ser integracao propria com Figma/API/OAuth, sem exigir VS Code, Codex, Dev Mode ou configuracao manual de MCP.
+- Quando o MCP nao estiver disponivel, o sistema continua usando HTML, CSS, arvore Figma extraida, arvore normalizada e logs.
+
+### Regras
+
+- A IA deve preservar estrutura base, `data-figma-id`, rastreabilidade e modo ativo: `visual-first`, `responsivo` ou `semantico`.
+- No `visual-first`, a IA pode usar tamanhos fixos do Figma para adiantar estilização, sem exigir que esta seja a versao final responsiva.
+- A IA pode revisar HTML, CSS, metadados, logs, screenshots e contexto MCP opcional.
+- Toda alteracao aplicada pela IA deve manter HTML e CSS sincronizados.
+- A IA nao deve inventar componentes, trocar layout principal, remover elementos visuais importantes ou apagar regras funcionais sem justificativa.
+- A IA deve retornar resumo curto das alteracoes e alertas objetivos quando nao conseguir corrigir algo por falta de dados ou ausencia de MCP.
+
+### Implementacao inicial
+
+- Backend expõe `POST /api/generate/ai/context` para montar um pacote de contexto RF10.
+- O pacote inclui prompt, restricoes, modo ativo, estrutura Figma normalizada, HTML, CSS, logs e link MCP opcional.
+- A interface pode oferecer botao especifico para gerar contexto IA/MCP, mas deve reaproveitar a URL do Figma informada no inicio do fluxo, sem criar campo adicional de link nesta etapa.
+- Esta etapa nao chama provedor de IA nem exige MCP ativo; ela prepara o contexto para uso interno/agente/dev e preserva o fluxo local quando MCP nao estiver disponivel.
+- Exportacao unificada, ZIP, Git ou GitHub ficam para RF posterior e nao devem aparecer na UI desta etapa.

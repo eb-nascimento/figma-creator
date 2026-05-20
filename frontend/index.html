@@ -118,17 +118,21 @@
           </div>
           <pre id="generated-css" class="structure-json">Extraia a estrutura antes de gerar CSS.</pre>
         </section>
-        <section class="structure-panel" aria-labelledby="export-title">
+
+        <section class="structure-panel" aria-labelledby="ai-context-title">
           <div class="section-heading">
-            <h2 id="export-title">Exportação Unificada (HTML + CSS)</h2>
+            <div>
+              <h2 id="ai-context-title">Contexto IA / MCP</h2>
+              <p class="preview-status">Usa a URL do Figma informada no topo como contexto MCP opcional.</p>
+            </div>
             <div style="display:flex; gap:8px; align-items:center;">
-              <button id="generate-export-button" type="button" class="primary" disabled>Exportar Código</button>
+              <button id="generate-ai-context-button" type="button" disabled>Gerar contexto MCP</button>
+              <button type="button" class="copy-button secondary" data-target="ai-context-json" title="Copiar contexto completo">Copiar</button>
             </div>
           </div>
-          <p style="margin-top: 10px; font-size: 14px; color: #666;">
-            Gera HTML refinado e CSS coordenados a partir de uma única fonte de verdade.
-          </p>
+          <pre id="ai-context-json" class="structure-json">Extraia a estrutura antes de gerar o contexto IA/MCP.</pre>
         </section>
+
         <section class="structure-panel preview-panel" aria-labelledby="preview-title">
           <div class="section-heading">
             <div>

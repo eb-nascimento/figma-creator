@@ -15,7 +15,12 @@ const {
   handleFigmaFrames,
   handleFigmaImport,
 } = require("./routes/figmaRoutes");
-const { handleGenerateHtml, handleRefineHtml, handleGenerateCss, handleGenerateAll } = require("./routes/generateRoutes");
+const {
+  handleGenerateHtml,
+  handleRefineHtml,
+  handleGenerateCss,
+  handleGenerateAiContext,
+} = require("./routes/generateRoutes");
 
 loadEnv();
 
@@ -262,10 +267,10 @@ async function requestListener(request, response) {
     return;
   }
 
-  if (request.method === "POST" && requestUrl.pathname === "/api/generate/export") {
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/css") {
     try {
       const body = await readJsonBody(request);
-      const result = handleGenerateAll(body);
+      const result = handleGenerateCss(body);
       sendJson(request, response, 200, result);
     } catch (error) {
       sendJson(request, response, error.statusCode || 500, {
@@ -275,10 +280,10 @@ async function requestListener(request, response) {
     return;
   }
 
-  if (request.method === "POST" && requestUrl.pathname === "/api/generate/css") {
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/ai/context") {
     try {
       const body = await readJsonBody(request);
-      const result = handleGenerateCss(body);
+      const result = handleGenerateAiContext(body);
       sendJson(request, response, 200, result);
     } catch (error) {
       sendJson(request, response, error.statusCode || 500, {
