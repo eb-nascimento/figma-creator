@@ -33,13 +33,14 @@ test("builds AI improvement context with optional Figma MCP link", () => {
     logs: ["radius ausente"],
   });
 
-  assert.equal(result.mode, "visual-first");
+  assert.equal(result.mode, "responsive");
   assert.equal(result.mcp.available, true);
   assert.equal(result.mcp.nodeId, "117:203");
   assert.equal(result.summary.hasMcpLink, true);
   assert.equal(result.summary.hasHtml, true);
   assert.equal(result.summary.hasCss, true);
   assert.match(result.prompt, /Use o MCP do Figma/);
+  assert.match(result.prompt, /tela web bonita e legivel/);
   assert.match(result.prompt, /data-figma-id/);
   assert.equal(result.context.structureSummary.id, "117:203");
   assert.deepEqual(result.context.logs, ["radius ausente"]);

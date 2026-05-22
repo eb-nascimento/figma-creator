@@ -463,7 +463,11 @@ function buildRules(node, colorTokens, isRoot = false, parentNode = null, option
     const color = extractColorFromPaint(solidStroke);
     if (color && color.css) {
       const colorVal = colorTokens[color.css] ? `var(${colorTokens[color.css]})` : color.css;
-      rules["border"] = `${style.strokeWeight}px solid ${colorVal}`;
+      if (isTextNode) {
+        rules["-webkit-text-stroke"] = `${style.strokeWeight}px ${colorVal}`;
+      } else {
+        rules["border"] = `${style.strokeWeight}px solid ${colorVal}`;
+      }
     }
   }
 
@@ -961,7 +965,6 @@ function generateResponsiveCss(activeSelectors, rootSelector = "") {
   const css = [];
   const hasRootSelector = rootSelector && selectorExistsInGeneratedHtml(rootSelector, activeSelectors);
   const contentSelector = hasRootSelector ? `${rootSelector} > :not(.sidebar)` : "";
-  const rootWithSidebarSelector = hasRootSelector ? `${rootSelector}:has(> .sidebar)` : "";
 
   css.push("/* 6. Responsiveness */");
 
@@ -1000,9 +1003,6 @@ function generateResponsiveCss(activeSelectors, rootSelector = "") {
 
 
   if (hasRootSelector && hasSelector(activeSelectors, ".sidebar")) {
-    appendRule(tabletRules, rootWithSidebarSelector, {
-      "flex-direction": "row; flex-direction: row !important"
-    });
     appendRule(tabletRules, ".sidebar", {
       "width": "96px; width: 96px !important",
       "flex": "0 0 96px; flex: 0 0 96px !important"
@@ -1063,17 +1063,10 @@ function generateResponsiveCss(activeSelectors, rootSelector = "") {
   });
 
   if (hasRootSelector && hasSelector(activeSelectors, ".sidebar")) {
-    appendRule(mobileRules, rootWithSidebarSelector, {
-      "flex-direction": "column; flex-direction: column !important"
-    });
     appendRule(mobileRules, ".sidebar", {
       "width": "100%; width: 100% !important",
       "flex": "0 0 auto; flex: 0 0 auto !important",
       "height": "auto; height: auto !important"
-    });
-    appendRule(mobileRules, ".sidebar-nav", {
-      "flex-direction": "row; flex-direction: row !important",
-      "overflow-x": "auto; overflow-x: auto !important"
     });
   }
   if (hasRootSelector) {
@@ -1116,8 +1109,9 @@ function generateResponsiveCss(activeSelectors, rootSelector = "") {
   }
   if (hasSelector(activeSelectors, ".table")) {
     appendRule(mobileRules, ".table", {
-      "min-width": "640px; min-width: 640px !important",
-      "width": "max-content; width: max-content !important"
+      "min-width": "0; min-width: 0 !important",
+      "width": "100%; width: 100% !important",
+      "max-width": "100%; max-width: 100% !important"
     });
   }
   if (hasSelector(activeSelectors, ".data-grid")) {
@@ -1236,27 +1230,12 @@ function generateRootLayoutCss(activeSelectors, rootSelector = "", options = {})
     }, 0);
   }
 
-  if (hasSelector(activeSelectors, ".sidebar")) {
-    if (options.mode === "visual-first") {
-      appendRule(lines, `${rootSelector}:has(> .sidebar)`, {
-        "flex-direction": "row"
-      }, 0);
-      appendRule(lines, `${rootSelector} > :not(.sidebar)`, {
-        "display": "flex",
-        "flex-direction": "column"
-      }, 0);
-    } else {
-      appendRule(lines, `${rootSelector}:has(> .sidebar)`, {
-        "flex-direction": "row"
-      }, 0);
-      appendRule(lines, `${rootSelector} > :not(.sidebar)`, {
-        "flex": "1",
-        "display": "flex",
-        "flex-direction": "column",
-        "overflow-y": "auto",
-        "min-width": "0"
-      }, 0);
-    }
+  if (hasSelector(activeSelectors, ".sidebar") && options.mode !== "visual-first") {
+    appendRule(lines, `${rootSelector} > :not(.sidebar)`, {
+      "flex": "1",
+      "overflow-y": "auto",
+      "min-width": "0"
+    }, 0);
   }
 
   return lines.join("\n") + "\n\n";
@@ -1327,6 +1306,9 @@ function generateCss(structure, htmlString = "", options = { mode: "responsive" 
   cssString += "/* 2. Base & Resets */\n";
   cssString += `* {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}\n\n`;
   cssString += `body {\n  font-family: system-ui, -apple-system, sans-serif;\n  color: var(--color-text, #333);\n  background-color: var(--color-surface-alt, #F8FAFC);\n  line-height: 1.5;\n}\n\n`;
+  if (options.mode !== "visual-first") {
+    cssString += `:where(body *) {\n  min-width: 0;\n  min-height: 0;\n  max-width: 100%;\n  max-height: 100%;\n  overflow-wrap: anywhere;\n}\n\n`;
+  }
 
   cssString += generateRootLayoutCss(activeSelectors, rootSelector, options);
   cssString += generateVisualOrderCss(structure, activeSelectors);

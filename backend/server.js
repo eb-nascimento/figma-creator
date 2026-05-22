@@ -20,7 +20,14 @@ const {
   handleRefineHtml,
   handleGenerateCss,
   handleGenerateAiContext,
+  handleRunAgentRunner,
+  handlePerformMerge,
+  handleGetActiveCandidates,
 } = require("./routes/generateRoutes");
+const {
+  handleExportZip,
+  handleExportGit,
+} = require("./routes/exportRoutes");
 
 loadEnv();
 
@@ -284,6 +291,62 @@ async function requestListener(request, response) {
     try {
       const body = await readJsonBody(request);
       const result = handleGenerateAiContext(body);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/ai/run") {
+    try {
+      const body = await readJsonBody(request);
+      const result = await handleRunAgentRunner(body, requestContext);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/generate/merge") {
+    try {
+      const body = await readJsonBody(request);
+      const result = await handlePerformMerge(body, requestContext);
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && requestUrl.pathname === "/api/candidates/active") {
+    try {
+      const result = handleGetActiveCandidates();
+      sendJson(request, response, 200, result);
+    } catch (error) {
+      sendJson(request, response, error.statusCode || 500, {
+        error: error.message || "Erro interno do servidor.",
+      });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && requestUrl.pathname === "/api/export/zip") {
+    await handleExportZip(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && requestUrl.pathname === "/api/export/git") {
+    try {
+      const body = await readJsonBody(request);
+      const result = await handleExportGit(body, requestContext);
       sendJson(request, response, 200, result);
     } catch (error) {
       sendJson(request, response, error.statusCode || 500, {

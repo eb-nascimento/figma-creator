@@ -15,6 +15,18 @@ const state = {
   previewMode: "desktop",
   generatingAiContext: false,
   aiContext: null,
+  previewFitMode: "fit",
+
+  // New state variables for RF11 / RF11.1 / RF11.2
+  jsHtml: null,
+  jsCss: null,
+  iaHtml: null,
+  iaCss: null,
+  runningAgentRunner: false,
+  merging: false,
+  activePreviewName: "nenhuma",
+  activePreviewHash: "",
+  activePreviewTimestamp: "",
 };
 
 const elements = {
@@ -47,7 +59,36 @@ const elements = {
   previewFrameShell: document.querySelector("#preview-frame-shell"),
   previewModeButtons: document.querySelectorAll(".preview-mode-button"),
   previewStatus: document.querySelector("#preview-status"),
+  previewVersionInfo: document.querySelector("#preview-version-info"),
+  previewReloadButton: document.querySelector("#preview-reload-button"),
+
+  // New UI elements
+  runAgentRunnerButton: document.querySelector("#run-agent-runner-button"),
+  aiRunnerStatus: document.querySelector("#ai-runner-status"),
+  aiRunnerStatusText: document.querySelector("#ai-runner-status-text"),
+  codeJsBase: document.querySelector("#code-js-base"),
+  codeIaCandidate: document.querySelector("#code-ia-candidate"),
+  runMergeButton: document.querySelector("#run-merge-button"),
+  mergeLogsContainer: document.querySelector("#merge-logs-container"),
+  mergeValidationLogs: document.querySelector("#merge-validation-logs"),
+  exportZipButton: document.querySelector("#export-zip-button"),
+  exportGitButton: document.querySelector("#export-git-button"),
+  exportFeedback: document.querySelector("#export-feedback"),
+  candidatePreview: document.querySelector("#candidate-preview"),
+  previewIaBox: document.querySelector("#preview-ia-box"),
+  previewJsTitle: document.querySelector("#preview-js-title"),
 };
+
+function hashContent(value) {
+  const text = String(value || "");
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+
+  return Math.abs(hash).toString(16).padStart(8, "0").slice(0, 8);
+}
 
 function setFeedback(message, options = {}) {
   elements.feedback.textContent = message;
@@ -96,6 +137,57 @@ function setAiContextLoading(isLoading) {
   elements.generateAiContextButton.textContent = isLoading
     ? "Gerando..."
     : "Gerar contexto MCP";
+}
+
+function setAgentRunnerLoading(isLoading) {
+  state.runningAgentRunner = isLoading;
+  if (elements.runAgentRunnerButton) {
+    elements.runAgentRunnerButton.disabled = isLoading;
+    elements.runAgentRunnerButton.textContent = isLoading ? "Processando..." : "Executar Agent Runner IA";
+  }
+  if (elements.aiRunnerStatus) {
+    elements.aiRunnerStatus.style.display = isLoading ? "block" : "none";
+  }
+}
+
+function setMergeLoading(isLoading) {
+  state.merging = isLoading;
+  if (elements.runMergeButton) {
+    elements.runMergeButton.disabled = isLoading;
+    elements.runMergeButton.textContent = isLoading ? "Mesclando..." : "Mesclar Código (Merge Híbrido)";
+  }
+}
+
+function checkOrquestradorAvailability() {
+  const hasStructure = !!state.extractedStructure;
+  const hasHtml = !!state.refinedHtml || !!state.generatedHtml;
+  const hasCss = !!state.generatedCss;
+  const isAvailable = hasStructure && hasHtml && hasCss;
+
+  if (elements.runAgentRunnerButton) {
+    elements.runAgentRunnerButton.disabled = !isAvailable;
+  }
+}
+
+function resetOrquestradorPanel() {
+  state.jsHtml = null;
+  state.jsCss = null;
+  state.iaHtml = null;
+  state.iaCss = null;
+
+  if (elements.runAgentRunnerButton) elements.runAgentRunnerButton.disabled = true;
+  if (elements.runMergeButton) elements.runMergeButton.disabled = true;
+  if (elements.exportZipButton) elements.exportZipButton.disabled = true;
+  if (elements.exportGitButton) elements.exportGitButton.disabled = true;
+  if (elements.aiRunnerStatus) elements.aiRunnerStatus.style.display = "none";
+  if (elements.codeJsBase) elements.codeJsBase.textContent = "Gere o HTML/CSS determinístico primeiro.";
+  if (elements.codeIaCandidate) elements.codeIaCandidate.textContent = "Aguardando execução do Agent Runner...";
+  if (elements.mergeLogsContainer) elements.mergeLogsContainer.style.display = "none";
+  if (elements.mergeValidationLogs) elements.mergeValidationLogs.textContent = "Aguardando mesclagem...";
+  if (elements.exportFeedback) elements.exportFeedback.textContent = "";
+  if (elements.previewIaBox) elements.previewIaBox.style.display = "none";
+  if (elements.previewJsTitle) elements.previewJsTitle.style.display = "none";
+  if (elements.previewJsTitle) elements.previewJsTitle.textContent = "Preview JS Determinístico";
 }
 
 async function requestJson(url, options = {}) {
@@ -196,6 +288,7 @@ function resetStructurePanel() {
   resetHtmlPanel();
   resetCssPanel();
   resetAiContextPanel();
+  resetOrquestradorPanel();
 }
 
 function renderStructure(payload) {
@@ -212,6 +305,7 @@ function renderStructure(payload) {
   if (elements.generateAiContextButton) {
     elements.generateAiContextButton.disabled = false;
   }
+  checkOrquestradorAvailability();
 }
 
 function resetHtmlPanel() {
@@ -229,6 +323,7 @@ function renderGeneratedHtml(payload) {
   elements.refineHtmlButton.disabled = false;
   resetAiContextPanel();
   resetPreview();
+  checkOrquestradorAvailability();
 }
 
 function resetRefinedHtmlPanel() {
@@ -245,6 +340,7 @@ function renderRefinedHtml(payload) {
   elements.refinedHtml.textContent = payload.html;
   resetAiContextPanel();
   renderPreview();
+  checkOrquestradorAvailability();
 }
 
 function resetCssPanel() {
@@ -261,6 +357,7 @@ function renderGeneratedCss(payload) {
   elements.generatedCss.textContent = payload.css;
   resetAiContextPanel();
   renderPreview();
+  checkOrquestradorAvailability();
 }
 
 function resetAiContextPanel() {
@@ -289,48 +386,73 @@ function resetPreview() {
     elements.previewFrame.srcdoc = "";
   }
 
+  state.activePreviewName = "nenhuma";
+  state.activePreviewHash = "";
+  state.activePreviewTimestamp = "";
+
   if (elements.previewStatus) {
     elements.previewStatus.textContent = "Gere HTML refinado e CSS para visualizar.";
     elements.previewStatus.classList.remove("error");
   }
+
+  if (elements.previewVersionInfo) {
+    elements.previewVersionInfo.textContent = "Versão ativa: nenhuma.";
+  }
 }
 
-state.previewFitMode = "fit"; // default
-
 function updatePreviewScale() {
-  const iframe = elements.previewFrame;
   const shell = elements.previewFrameShell;
-  const wrapper = document.querySelector("#preview-wrapper");
-  if (!iframe || !shell || !wrapper) return;
+  if (!shell) return;
 
-  // Obter dimensões originais do figma
   const figmaWidth = (state.extractedStructure && state.extractedStructure.layout && state.extractedStructure.layout.width) || 1920;
   const figmaHeight = (state.extractedStructure && state.extractedStructure.layout && state.extractedStructure.layout.height) || 1080;
 
+  const wrappers = document.querySelectorAll("#preview-wrapper-js, #preview-wrapper-ia");
+  const isSplit = elements.previewIaBox && elements.previewIaBox.style.display === "block";
+
+  wrappers.forEach((wrapper) => {
+    if (state.previewFitMode === "real") {
+      wrapper.style.width = `${figmaWidth}px`;
+      wrapper.style.height = `${figmaHeight}px`;
+      wrapper.style.transform = "none";
+      wrapper.style.marginRight = "0";
+      wrapper.style.marginBottom = "0";
+    } else {
+      let availableWidth = shell.clientWidth - 24;
+      if (isSplit) {
+        availableWidth = (availableWidth - 16) / 2;
+      }
+      const scale = Math.min(availableWidth / figmaWidth, 1);
+      wrapper.style.width = `${figmaWidth}px`;
+      wrapper.style.height = `${figmaHeight}px`;
+      wrapper.style.transform = `scale(${scale})`;
+      wrapper.style.marginRight = `-${figmaWidth * (1 - scale)}px`;
+      wrapper.style.marginBottom = `-${figmaHeight * (1 - scale)}px`;
+    }
+  });
+
   if (state.previewFitMode === "real") {
-    // Tamanho real com scroll
-    wrapper.style.width = `${figmaWidth}px`;
-    wrapper.style.height = `${figmaHeight}px`;
-    wrapper.style.transform = "none";
-    wrapper.style.marginRight = "0";
-    wrapper.style.marginBottom = "0";
     shell.style.overflow = "auto";
     shell.style.height = "auto";
     shell.style.minHeight = "660px";
   } else {
-    // Ajustar à tela com transform: scale
-    const shellWidth = shell.clientWidth - 24; // padding correction
-    
-    const scale = Math.min(shellWidth / figmaWidth, 1);
-
-    wrapper.style.width = `${figmaWidth}px`;
-    wrapper.style.height = `${figmaHeight}px`;
-    wrapper.style.transform = `scale(${scale})`;
-    wrapper.style.marginRight = `-${figmaWidth * (1 - scale)}px`;
-    wrapper.style.marginBottom = `-${figmaHeight * (1 - scale)}px`;
-    
     shell.style.overflow = "hidden";
-    shell.style.height = `${figmaHeight * scale + 24}px`;
+    let maxScaledHeight = 0;
+    wrappers.forEach((wrapper) => {
+      const parent = wrapper.parentElement;
+      if (parent && parent.style.display !== "none") {
+        let availableWidth = shell.clientWidth - 24;
+        if (isSplit) {
+          availableWidth = (availableWidth - 16) / 2;
+        }
+        const scale = Math.min(availableWidth / figmaWidth, 1);
+        const scaledHeight = figmaHeight * scale;
+        if (scaledHeight > maxScaledHeight) {
+          maxScaledHeight = scaledHeight;
+        }
+      }
+    });
+    shell.style.height = `${maxScaledHeight + 24}px`;
     shell.style.minHeight = "auto";
   }
 }
@@ -346,7 +468,8 @@ function setPreviewMode(mode) {
 function buildPreviewDocument(html, css) {
   const safeCss = css || "";
   const source = html || "";
-  const styleTag = `<style>${safeCss}</style>`;
+  const renderKey = hashContent(`${source}\n${safeCss}\n${Date.now()}`);
+  const styleTag = `<style data-preview-key="${renderKey}">\n/* preview-key:${renderKey} */\n${safeCss}</style>`;
 
   if (/<\/head>/i.test(source)) {
     return source.replace(/<\/head>/i, `${styleTag}</head>`);
@@ -365,6 +488,29 @@ function buildPreviewDocument(html, css) {
 </html>`;
 }
 
+function updatePreviewVersionInfo(name, html, css) {
+  const hash = hashContent(`${html || ""}\n${css || ""}`);
+  const timestamp = new Date().toLocaleTimeString("pt-BR");
+
+  state.activePreviewName = name;
+  state.activePreviewHash = hash;
+  state.activePreviewTimestamp = timestamp;
+
+  if (elements.previewVersionInfo) {
+    elements.previewVersionInfo.textContent = `Versão ativa: ${name} | hash ${hash} | ${timestamp}`;
+  }
+}
+
+function renderPreviewFrame(frame, html, css) {
+  if (!frame) return;
+
+  frame.srcdoc = "";
+  const documentSource = buildPreviewDocument(html, css);
+  setTimeout(() => {
+    frame.srcdoc = documentSource;
+  }, 0);
+}
+
 function renderPreview() {
   if (!elements.previewFrame) {
     return;
@@ -378,9 +524,15 @@ function renderPreview() {
   try {
     elements.previewStatus.textContent = "Montando preview...";
     elements.previewStatus.classList.remove("error");
-    elements.previewFrame.srcdoc = buildPreviewDocument(state.refinedHtml, state.generatedCss);
+    renderPreviewFrame(elements.previewFrame, state.refinedHtml, state.generatedCss);
+    updatePreviewVersionInfo(
+      elements.previewJsTitle && elements.previewJsTitle.textContent.includes("Consolidado")
+        ? "consolidada"
+        : "base JS",
+      state.refinedHtml,
+      state.generatedCss
+    );
     
-    // Agendar o cálculo de escala assim que o iframe renderizar
     setTimeout(() => {
       updatePreviewScale();
     }, 100);
@@ -571,8 +723,7 @@ async function generateCss() {
   setFeedback("Gerando CSS...");
 
   try {
-    const modeSelect = document.querySelector("#generation-mode");
-    const mode = modeSelect ? modeSelect.value : "visual-first";
+    const mode = "responsive";
     const payload = await requestJson("/api/generate/css", {
       method: "POST",
       body: JSON.stringify({
@@ -597,8 +748,7 @@ async function generateAiContext() {
   }
 
   const figmaLink = elements.figmaUrl.value.trim();
-  const modeSelect = document.querySelector("#generation-mode");
-  const mode = modeSelect ? modeSelect.value : "visual-first";
+  const mode = "responsive";
 
   setAiContextLoading(true);
 
@@ -634,6 +784,233 @@ async function generateAiContext() {
   }
 }
 
+async function runAgentRunner() {
+  if (!state.extractedStructure) {
+    setFeedback("Extraia a estrutura antes de disparar o Agent Runner.", { error: true });
+    return;
+  }
+
+  const figmaLink = elements.figmaUrl.value.trim();
+  const mode = "responsive";
+
+  setAgentRunnerLoading(true);
+  if (elements.aiRunnerStatusText) {
+    elements.aiRunnerStatusText.textContent = "Iniciando orquestrador e lendo contexto Figma/MCP...";
+  }
+  setFeedback("Executando orquestração automatizada IA/MCP...");
+
+  try {
+    const payload = await requestJson("/api/generate/ai/run", {
+      method: "POST",
+      body: JSON.stringify({
+        structure: state.extractedStructure,
+        html: state.refinedHtml || state.generatedHtml || "",
+        css: state.generatedCss || "",
+        mode,
+        figmaLink,
+      }),
+    });
+
+    const runnerLogs = payload.iaCandidate?.metadata?.logs || [];
+    const providerStatus = payload.aiProvider?.status || "Status do provedor IA indisponivel.";
+
+    if (elements.aiRunnerStatusText) {
+      elements.aiRunnerStatusText.textContent = providerStatus;
+    }
+
+    state.jsHtml = state.refinedHtml || state.generatedHtml || "";
+    state.jsCss = state.generatedCss || "";
+    state.iaHtml = payload.iaCandidate.html;
+    state.iaCss = payload.iaCandidate.css;
+
+    if (elements.codeJsBase) {
+      elements.codeJsBase.textContent = `<!-- HTML -->\n${state.jsHtml}\n\n/* CSS */\n${state.jsCss}`;
+    }
+    if (elements.codeIaCandidate) {
+      const logsBlock = runnerLogs.length
+        ? `/* LOGS DO AGENT RUNNER\n${runnerLogs.map((line) => `- ${line}`).join("\n")}\n*/\n\n`
+        : "";
+      elements.codeIaCandidate.textContent = `${logsBlock}<!-- HTML -->\n${state.iaHtml}\n\n/* CSS */\n${state.iaCss}`;
+    }
+
+    if (elements.runMergeButton) {
+      elements.runMergeButton.disabled = false;
+    }
+
+    if (elements.previewIaBox) {
+      elements.previewIaBox.style.display = "block";
+    }
+    if (elements.previewJsTitle) {
+      elements.previewJsTitle.style.display = "block";
+      elements.previewJsTitle.textContent = "Preview JS Determinístico";
+    }
+
+    if (elements.candidatePreview) {
+      renderPreviewFrame(elements.candidatePreview, state.iaHtml, state.iaCss);
+    }
+
+    const baseHash = hashContent(`${state.jsHtml}\n${state.jsCss}`);
+    const candidateHash = hashContent(`${state.iaHtml}\n${state.iaCss}`);
+    const versionsAreIdentical = baseHash === candidateHash;
+
+    setTimeout(() => {
+      updatePreviewScale();
+    }, 150);
+
+    setFeedback(
+      versionsAreIdentical
+        ? "Versão base JS e candidata IA/MCP são idênticas. O preview pode parecer igual até o merge aplicar diferenças reais."
+        : "Versão candidata IA/MCP gerada e pronta para comparação.",
+      { error: versionsAreIdentical }
+    );
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+    if (elements.aiRunnerStatusText) {
+      elements.aiRunnerStatusText.textContent = `Erro: ${error.message}`;
+    }
+  } finally {
+    setAgentRunnerLoading(false);
+  }
+}
+
+async function runMerge() {
+  if (!state.jsHtml || !state.iaHtml) {
+    setFeedback("Gere a versão candidata IA antes de mesclar.", { error: true });
+    return;
+  }
+
+  setMergeLoading(true);
+  setFeedback("Mesclando estrutura lógica com refinamentos estéticos...");
+
+  try {
+    const payload = await requestJson("/api/generate/merge", {
+      method: "POST",
+      body: JSON.stringify({
+        jsHtml: state.jsHtml,
+        jsCss: state.jsCss,
+        iaHtml: state.iaHtml,
+        iaCss: state.iaCss,
+      }),
+    });
+
+    state.refinedHtml = payload.html;
+    state.generatedCss = payload.css;
+
+    if (elements.refinedHtml) {
+      elements.refinedHtml.textContent = payload.html;
+    }
+
+    if (elements.generatedCss) {
+      elements.generatedCss.textContent = payload.css;
+    }
+
+    if (elements.previewJsTitle) {
+      elements.previewJsTitle.textContent = "Preview Consolidado (Após Merge)";
+    }
+
+    renderPreview();
+
+    if (elements.mergeValidationLogs) {
+      // Use structured report text if available, fall back to logs array
+      elements.mergeValidationLogs.textContent =
+        payload.reportText || (Array.isArray(payload.logs) ? payload.logs.join("\n") : "");
+    }
+    if (elements.mergeLogsContainer) {
+      elements.mergeLogsContainer.style.display = "block";
+    }
+
+    if (elements.exportZipButton) elements.exportZipButton.disabled = false;
+    if (elements.exportGitButton) elements.exportGitButton.disabled = false;
+
+    const report = payload.report || {};
+    const accepted = report.accepted?.length ?? "?";
+    const rejected = report.rejected?.length ?? "?";
+    const mergedHash = hashContent(`${payload.html}\n${payload.css}`);
+    const baseHash = hashContent(`${state.jsHtml}\n${state.jsCss}`);
+    const relevantPatchCount = report.relevantPatchCount || 0;
+
+    setFeedback(
+      mergedHash === baseHash || relevantPatchCount === 0
+        ? `Merge concluído — nenhum patch visual relevante foi aplicado. Base e consolidado podem estar iguais.`
+        : `Merge concluído — ${accepted} patch(es) aplicado(s), ${rejected} rejeitado(s), ${relevantPatchCount} diferença(s) visual(is) real(is). Versão consolidada pronta para exportação.`,
+      { error: mergedHash === baseHash || relevantPatchCount === 0 }
+    );
+
+  } catch (error) {
+    setFeedback(error.message, { error: true });
+  } finally {
+    setMergeLoading(false);
+  }
+}
+
+function reloadPreview() {
+  if (!state.refinedHtml || !state.generatedCss) {
+    setFeedback("Nenhuma versão disponível para recarregar no preview.", { error: true });
+    return;
+  }
+
+  renderPreview();
+
+  if (state.iaHtml && state.iaCss && elements.candidatePreview && elements.previewIaBox?.style.display === "block") {
+    renderPreviewFrame(elements.candidatePreview, state.iaHtml, state.iaCss);
+  }
+
+  setFeedback(`Preview recarregado: ${state.activePreviewName} (${state.activePreviewHash}).`);
+}
+
+function exportZip() {
+  if (elements.exportFeedback) {
+    elements.exportFeedback.textContent = "Preparando pacote ZIP...";
+    elements.exportFeedback.className = "feedback";
+  }
+
+  try {
+    window.location.href = "/api/export/zip";
+    setTimeout(() => {
+      if (elements.exportFeedback) {
+        elements.exportFeedback.textContent = "Download do pacote ZIP iniciado com sucesso!";
+        elements.exportFeedback.className = "feedback success-message";
+      }
+    }, 1000);
+  } catch (error) {
+    if (elements.exportFeedback) {
+      elements.exportFeedback.textContent = `Erro na exportação ZIP: ${error.message}`;
+      elements.exportFeedback.className = "feedback error";
+    }
+  }
+}
+
+async function exportGit() {
+  if (elements.exportFeedback) {
+    elements.exportFeedback.textContent = "Inicializando repositório Git local e criando commit...";
+    elements.exportFeedback.className = "feedback";
+  }
+
+  try {
+    const payload = await requestJson("/api/export/git", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+
+    if (elements.exportFeedback) {
+      elements.exportFeedback.innerHTML = `
+        <div style="color: var(--accent); margin-bottom: 8px;">Repositório Git inicializado e commitado com sucesso!</div>
+        <div style="font-size: 11px; color: var(--muted); font-family: monospace; background: var(--surface-strong); padding: 8px; border-radius: 4px; overflow-x: auto; max-height: 120px; white-space: pre-wrap;">
+          <strong>Pasta:</strong> ${payload.folder}<br><br>
+          <strong>Logs Git:</strong><br>${payload.logs.join("\n")}
+        </div>
+      `;
+      elements.exportFeedback.className = "feedback success-message";
+    }
+  } catch (error) {
+    if (elements.exportFeedback) {
+      elements.exportFeedback.textContent = `Erro na exportação Git: ${error.message}`;
+      elements.exportFeedback.className = "feedback error";
+    }
+  }
+}
+
+// Event Listeners
 elements.connectButton.addEventListener("click", () => {
   window.location.href = "/api/auth/figma/start";
 });
@@ -658,6 +1035,23 @@ elements.refineHtmlButton.addEventListener("click", refineHtml);
 elements.generateCssButton.addEventListener("click", generateCss);
 if (elements.generateAiContextButton) {
   elements.generateAiContextButton.addEventListener("click", generateAiContext);
+}
+
+// New Event Listeners
+if (elements.runAgentRunnerButton) {
+  elements.runAgentRunnerButton.addEventListener("click", runAgentRunner);
+}
+if (elements.runMergeButton) {
+  elements.runMergeButton.addEventListener("click", runMerge);
+}
+if (elements.exportZipButton) {
+  elements.exportZipButton.addEventListener("click", exportZip);
+}
+if (elements.exportGitButton) {
+  elements.exportGitButton.addEventListener("click", exportGit);
+}
+if (elements.previewReloadButton) {
+  elements.previewReloadButton.addEventListener("click", reloadPreview);
 }
 
 elements.previewModeButtons.forEach((button) => {
@@ -735,6 +1129,7 @@ document.querySelectorAll(".copy-button").forEach(button => {
 });
 
 setPreviewMode(state.previewMode);
+resetOrquestradorPanel();
 
 refreshAuthStatus().catch((error) => {
   setFeedback(error.message, { error: true });

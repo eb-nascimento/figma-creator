@@ -1,4 +1,4 @@
-# Figma Creator - SDD Vivo
+﻿# Figma Creator - SDD Vivo
 
 ## Introducao
 
@@ -337,11 +337,12 @@ O sistema deve complementar o CSS base do RF07 com regras responsivas geradas a 
 - Tratar `.nova-movimentacao-entrada` apenas como exemplo de uma tela especifica, nunca como regra fixa.
 - Garantir que a mesma logica funcione para dashboard, formulario, landing page, login, painel administrativo, tela mobile ou qualquer outro frame importado do Figma.
 - Ajustar a sidebar com largura/flex apenas quando existir um container principal real capaz de controlar a direcao do layout.
+- Responsividade nao pode inverter automaticamente `flex-direction` de `row` para `column` nem de `column` para `row`; a direcao extraida da estrutura/Figma deve ser preservada salvo mudanca estrutural explicitamente solicitada.
 - Adaptar grupos de cards/KPIs (`.valores`, `.summary-card`) para menos colunas em tablet e uma coluna em mobile.
 - Adaptar grupos de campos e formularios (`.campos`, `.form-field`, `.form-control`, `.movement-form`) para largura total e empilhamento em telas menores.
-- Manter tabelas/data grids utilizaveis no mobile com `.table-wrapper { overflow-x: auto; }` e largura minima da tabela.
+- Manter tabelas/data grids utilizaveis no mobile sem permitir que a tabela exceda o wrapper pai; a tabela deve encolher, quebrar conteudo quando necessario e permanecer limitada a `max-width: 100%`.
 - Preservar responsividade de segmented controls (`.segmented-control`) sem alterar a semantica do HTML.
-- Adaptar sidebar sem JavaScript nesta etapa: largura compacta em tablet e navegacao horizontal com overflow em mobile.
+- Adaptar sidebar sem JavaScript nesta etapa por sizing e contenção, sem forcar navegacao horizontal ou inverter a direcao estrutural em breakpoint.
 - Preservar o fluxo semantico do HTML: a responsividade deve ser aplicada por CSS, sem trocar tags semanticas por divs genericas.
 - Preservar a geracao sincronizada de HTML + CSS pela mesma arvore refinada.
 - A classificacao de cards de resumo deve ser local ao componente compacto. Containers grandes, telas ou secoes com tabelas/formularios descendentes nao podem virar KPI apenas por conterem valores monetarios aninhados.
@@ -378,6 +379,7 @@ Este requisito estabelece as especificações técnicas para sanar divergências
 ### Regras de Sombras e Textos
 
 - **Sombras de Texto (text-shadow):** Elementos identificados como texto (`text`, `span`, `p`, `h1`, `h2`, `h3`, `h4`, `h5`, `h6`) com efeitos de `DROP_SHADOW` no Figma devem obrigatoriamente mapear esses efeitos para a propriedade CSS `text-shadow` em vez de `box-shadow`.
+- **Stroke de Texto:** Strokes extraidos de nos de texto devem ser renderizados sobre os glifos com `-webkit-text-stroke` quando o CSS base os aplicar. Merge e overlays visuais nao devem transformar stroke textual em `border` retangular do elemento.
 - **Remoção de Parâmetro Spread:** A propriedade `text-shadow` não suporta o parâmetro `spread` do CSS. O gerador deve omitir o spread-radius na montagem da string de sombra para evitar que o navegador rejeite a regra de estilo.
 - **Evitar Sombras Quadradas em Textos:** Nenhum elemento de texto puro ou wrapper de texto puro deve renderizar `box-shadow` retangular simulando uma sombra que deveria cobrir o formato dos caracteres da fonte.
 
@@ -412,8 +414,10 @@ O sistema deve permitir uso de IA para revisar e melhorar HTML/CSS gerados sem s
 
 ### Regras
 
-- A IA deve preservar estrutura base, `data-figma-id`, rastreabilidade e modo ativo: `visual-first`, `responsivo` ou `semantico`.
-- No `visual-first`, a IA pode usar tamanhos fixos do Figma para adiantar estilização, sem exigir que esta seja a versao final responsiva.
+- A IA deve preservar estrutura base, `data-figma-id`, rastreabilidade e o modo ativo `responsive`.
+- A geracao ativa deve expor apenas o modo responsivo. O Figma orienta identidade visual, acabamento e hierarquia, mas fidelidade literal nao deve forcar geometria fixa quando ela piorar legibilidade, encaixe de titulos ou controles web.
+- No modo responsivo ativo, nenhum descendente pode exceder o parent por dimensao propria. Divs, textos, imagens, formularios, tabelas e controles devem receber limites de sizing/overflow de conteudo coerentes com `max-width: 100%`, `max-height: 100%`, `min-width: 0`, `min-height: 0` e quebra de conteudo quando necessario.
+- Patches de merge/IA nao podem trocar `flex-direction` para obter responsividade; direcao de fluxo e contrato estrutural da arvore extraida, nao acabamento visual.
 - A IA pode revisar HTML, CSS, metadados, logs, screenshots e contexto MCP opcional.
 - Toda alteracao aplicada pela IA deve manter HTML e CSS sincronizados.
 - A IA nao deve inventar componentes, trocar layout principal, remover elementos visuais importantes ou apagar regras funcionais sem justificativa.
@@ -426,3 +430,106 @@ O sistema deve permitir uso de IA para revisar e melhorar HTML/CSS gerados sem s
 - A interface pode oferecer botao especifico para gerar contexto IA/MCP, mas deve reaproveitar a URL do Figma informada no inicio do fluxo, sem criar campo adicional de link nesta etapa.
 - Esta etapa nao chama provedor de IA nem exige MCP ativo; ela prepara o contexto para uso interno/agente/dev e preserva o fluxo local quando MCP nao estiver disponivel.
 - Exportacao unificada, ZIP, Git ou GitHub ficam para RF posterior e nao devem aparecer na UI desta etapa.
+
+## RF11 - Uso de MCP/Figma como Fonte de Contexto Visual
+
+O MCP/Figma deve ser tratado como fonte opcional de contexto visual para agentes internos e IA, complementando a arvore extraida, a normalizacao e a geracao deterministica.
+
+### Regras
+
+- O MCP nao deve ser obrigatorio para o usuario final.
+- O backend pode usar o link do Figma para coletar contexto visual adicional quando disponivel.
+- O MCP nao substitui parser, normalizacao, geracao JS local ou IA; apenas complementa o contexto.
+
+## RF11.1 - Agent Runner para Geracao Automatizada via IA/MCP
+
+O backend deve conter um Agent Runner interno para coordenar geracao e melhoria automatizada com IA/MCP sem exigir ferramentas externas do usuario.
+
+### Regras
+
+- O Agent Runner monta pacote com contexto Figma/MCP, HTML/CSS JS deterministico, arvore original, arvore normalizada, logs e modo ativo responsivo.
+- O Agent Runner deve reutilizar a sessao OAuth Figma existente (`figma_creator_session`) para recuperar/renovar o access token; nao deve depender de cookie separado com token.
+- Quando o contexto Figma/API estiver disponivel, o backend deve extrair patches `figma-mcp` diretamente do `rawDocument` para seletores `[data-figma-id]`, sem depender apenas das sugestoes da IA.
+- No merge sobre HTML semantico refinado, os patches Figma deterministicos devem ficar restritos a acabamento visual seguro. Geometria plana e escala tipografica fixa (`position`, `left`, `top`, `width`, `height`, `font-size` e `line-height`) ja tratadas pela geracao base nao devem ser reaplicadas como overlay, pois quebram fluxo de formularios, tabelas e textos.
+- `source: figma-mcp` e reservado a patches extraidos deterministicamente do Figma/API real. Sugestoes da IA que aleguem essa origem devem ser rebaixadas para `ai-merge-agent`.
+- O Agent Runner pode invocar um provedor de IA integrado.
+- A resposta da IA deve ser salva como versao candidata IA/MCP, sem substituir a versao JS original.
+- A candidata IA/MCP deve preservar em memoria o `mcpContext` completo usado pelo Agent Runner, incluindo `rawDocument` quando disponivel; o RF11.2 deve consumir esse contexto completo, nao apenas metadados resumidos do frame.
+- O RF11.2 tambem deve usar a arvore normalizada que gerou o HTML como fonte visual deterministica, pois seus IDs batem com os `data-figma-id` do HTML final.
+- A interface pode comparar versao JS deterministica e versao candidata IA/MCP.
+- O backend deve registrar em `logs/figma-creator-debug.log` os artefatos do fluxo inteiro: frames, estrutura Figma, arvore normalizada, HTML base/refinado, CSS, contexto IA, candidata IA/MCP, patches, merge consolidado e exportacao.
+- O log deve indicar se a IA real foi executada, se houve fallback deterministico e se o contexto Figma/MCP real foi coletado, sem gravar tokens, cookies, secrets ou API keys.
+- Quando a IA real estiver configurada e cair em fallback deterministico, o Agent Runner deve registrar o motivo tecnico da falha, como erro HTTP, resposta vazia, JSON invalido ou campos obrigatorios ausentes.
+- O Agent Runner deve pedir refinamento visual responsivo e esteticamente cuidado para recuperar acabamento que o parser deterministico nao representar bem, mantendo patches especificos e rastreaveis por `data-figma-id`.
+
+## RF11.2 - Merge Hibrido e Consolidacao do Codigo Gerado
+
+O sistema deve consolidar o codigo gerado antes da exportacao por meio de **Merge Hibrido baseado em Patches Seletivos com AI Merge Agent**, comparando a estrutura deterministica JS com a fidelidade visual da candidata IA/MCP, sem concatenar CSS.
+
+### Objetivo
+
+Produzir uma versao final limpa com CSS base JS enriquecido apenas por patches visuais seguros e validados, preservando organizacao, rastreabilidade, fidelidade visual e estrutura semantica.
+
+### Modelo de Merge
+
+A versao IA/MCP nao deve ser aplicada como bloco HTML/CSS completo. O HTML final consolidado deve continuar sendo o HTML JS deterministico. A versao IA/MCP deve ser usada como referencia visual e insumo comparativo.
+
+O AI Merge Agent participa do merge, mas nao substitui o Agent Runner RF11.1 nem pode substituir livremente o HTML final. Ele compara as versoes e retorna exclusivamente patches estruturados.
+
+### Entradas do AI Merge Agent
+
+- HTML e CSS base JS deterministico.
+- HTML e CSS candidato IA/MCP.
+- Arvore normalizada do frame Figma.
+- Logs e metadados da execucao.
+- Contexto visual Figma/MCP, quando disponivel.
+
+### Formato dos patches
+
+Cada patch deve conter:
+
+- `selector` existente no HTML JS final, preferencialmente `[data-figma-id="N:M"]`.
+- `props` com propriedades CSS propostas.
+- `source` com origem do ajuste.
+- `reason` com motivo objetivo.
+- `confidence` com confianca.
+- `figmaId` quando houver `data-figma-id`.
+
+A IA deve retornar patches estruturados, nunca codigo livre concatenado.
+
+### Regras
+
+- O HTML JS deterministico e a base estrutural vencem a estrutura IA/MCP.
+- A versao IA/MCP serve como referencia visual, nao como substituta do HTML final.
+- Patches `figma-mcp` extraidos do Figma real devem ser combinados aos patches do AI Merge Agent e ter prioridade sobre inferencias `ia-inference`.
+- Em conflito de seletor/propriedade, patches internos `figma-raw-document` vencem patches sugeridos pela IA.
+- O backend aplica somente patches aceitos apos validacao.
+- Patches sem seletor correspondente no HTML JS final devem ser rejeitados ou enviados ao relatorio.
+- Seletores por `data-figma-id` vencem classes genericas.
+- Antes de aceitar um patch, o backend deve validar se ele altera o estilo efetivo apos a cascata CSS.
+- Patches aceitos devem substituir declaracoes no seletor correto ou entrar em uma secao final `/* AI/MCP Applied Patches */`, preferencialmente por `[data-figma-id]`, para garantir precedencia visual real.
+- O consolidado nao deve ficar pior que o candidato por reintroduzir posicionamento absoluto do Figma sobre HTML semantico; overlays deterministicos de merge devem preservar fluxo e legibilidade antes de buscar pixelizacao.
+- Patches em classe generica devem ser promovidos para `[data-figma-id]` quando o HTML possuir essa rastreabilidade; nao aceitar patch em classe se regra posterior por `data-figma-id` sobrescrever a mesma propriedade.
+- O backend deve remover ou rejeitar seletores orfaos, propriedades duplicadas e estilos genericos conflitantes.
+- A validacao de seletores orfaos deve analisar apenas seletores CSS reais, sem confundir valores numericos como `0.05`, `1.5`, `28px` ou `rgba(...)` com classes.
+- A IA nao deve inventar shadows, transitions, borders, radius ou efeitos sem base no Figma/MCP, na arvore normalizada, no candidato IA/MCP ou sem aprovacao explicita.
+- Patches `ai-visual-refinement` podem recuperar acabamento visual como `box-shadow`, `border-radius`, `letter-spacing` e `transition` quando tiverem seletor especifico rastreavel por `data-figma-id`, confianca minima validada pelo backend e nenhum conflito com valor deterministico do Figma.
+- Em conflito: estrutura JS vence estrutura IA/MCP; `data-figma-id` vence classe generica; estilo Figma/MCP vence embelezamento generico da IA; patch seguro vence concatenacao.
+- O sistema deve gerar relatorio com patches aceitos, rejeitados, conflitos e motivos.
+- O merge deve registrar no arquivo `.log` HTML/CSS base, HTML/CSS candidato, HTML/CSS consolidado, relatorio, patches aceitos/rejeitados, resumo de diferencas reais e status do provedor IA.
+- No Orquestrador IA & Agent Runner, todo bloco completo de codigo ou texto tecnico deve ter botao de copiar, incluindo HTML/CSS base, HTML/CSS candidato, HTML/CSS consolidado e relatorio/patches completos. A copia deve capturar o conteudo completo e exibir feedback `Copiado`.
+- O merge deve comparar CSS base e CSS consolidado, registrar diferencas reais e avisar `nenhum patch visual relevante foi aplicado` quando nao houver melhoria perceptivel.
+- Se menos de 5 patches efetivos forem aplicados, o sistema deve alertar `Merge sem melhoria visual relevante`.
+- `box-shadow`, `transition`, `border-radius` e `letter-spacing` devem vir de `figma-mcp` ou de refinamento visual IA rastreavel `ai-visual-refinement`; embelezamentos genericos sem escopo e sem rastreabilidade devem ser rejeitados.
+- O preview do Orquestrador deve indicar versao renderizada, hash e timestamp, forcar recarregamento quando HTML/CSS mudar e oferecer botao `Recarregar preview`.
+- Quando duas versoes comparadas tiverem HTML/CSS identicos, a interface deve exibir aviso.
+
+### Resultado
+
+HTML JS rastreavel preservado, CSS base JS enriquecido por patches seguros validados pelo backend e relatorio de auditoria pronto para exportacao.
+
+## RF12 - Exportacao do codigo gerado
+
+A exportacao deve consumir exclusivamente a versao consolidada valida do RF11.2, impedindo exportacao direta de versoes candidatas brutas ou inacabadas.
+
+As exportacoes ZIP/Git devem registrar no log de debug quais arquivos consolidados foram exportados, destino e logs tecnicos relevantes.

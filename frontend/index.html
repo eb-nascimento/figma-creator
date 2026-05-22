@@ -15,13 +15,6 @@
             <p id="auth-status">Verificando conexao com Figma...</p>
           </div>
           <div class="actions" style="display: flex; gap: 12px; align-items: center;">
-            <div class="select-wrapper" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
-              <label for="generation-mode" style="font-size: 11px; font-weight: bold; color: var(--muted); text-transform: uppercase;">Modo de Geração</label>
-              <select id="generation-mode" style="min-height: 42px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px; font-weight: bold; background: var(--surface); color: var(--text);">
-                <option value="visual-first" selected>Visual-First (Fidelidade Figma)</option>
-                <option value="responsive">Responsivo Web</option>
-              </select>
-            </div>
             <button id="connect-button" type="button">Conectar com Figma</button>
             <button id="logout-button" type="button" class="secondary" hidden>Sair</button>
           </div>
@@ -119,18 +112,80 @@
           <pre id="generated-css" class="structure-json">Extraia a estrutura antes de gerar CSS.</pre>
         </section>
 
-        <section class="structure-panel" aria-labelledby="ai-context-title">
-          <div class="section-heading">
+        <section class="structure-panel" aria-labelledby="ai-orchestrator-title" style="border: 2px solid var(--accent); border-radius: 8px; padding: 20px; background: rgba(15, 118, 110, 0.02); margin-top: 28px;">
+          <div class="section-heading" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
             <div>
-              <h2 id="ai-context-title">Contexto IA / MCP</h2>
-              <p class="preview-status">Usa a URL do Figma informada no topo como contexto MCP opcional.</p>
+              <h2 id="ai-orchestrator-title" style="color: var(--accent); display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                Orquestrador IA & Agent Runner (RF11 / RF11.1)
+              </h2>
+              <p class="preview-status" style="margin-top: 4px;">Dispare a IA para gerar uma versão candidata altamente fiel a partir do contexto visual do Figma/MCP.</p>
             </div>
             <div style="display:flex; gap:8px; align-items:center;">
-              <button id="generate-ai-context-button" type="button" disabled>Gerar contexto MCP</button>
-              <button type="button" class="copy-button secondary" data-target="ai-context-json" title="Copiar contexto completo">Copiar</button>
+              <button id="run-agent-runner-button" type="button" class="primary" style="background: var(--accent); min-height: 40px;" disabled>Executar Agent Runner IA</button>
             </div>
           </div>
-          <pre id="ai-context-json" class="structure-json">Extraia a estrutura antes de gerar o contexto IA/MCP.</pre>
+
+          <div id="ai-runner-status" style="margin-bottom: 16px; font-weight: bold; color: var(--muted); display: none;">
+            <span class="spinner" style="display: inline-block; animation: spin 0.8s linear infinite; border: 2px solid rgba(15, 118, 110, 0.18); border-top-color: var(--accent); border-radius: 50%; width: 14px; height: 14px; margin-right: 8px; vertical-align: middle;"></span>
+            <span id="ai-runner-status-text">Iniciando orquestrador e lendo contexto Figma/MCP...</span>
+          </div>
+
+          <div id="compare-pane-container" style="display: grid; gap: 16px; grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h3 style="font-size: 13px; font-weight: bold; text-transform: uppercase; color: var(--muted); margin:0;">Código Base (JS Determinístico)</h3>
+                <button type="button" class="copy-button secondary" data-target="code-js-base" title="Copiar código completo" style="font-size:11px; padding:2px 10px; min-height:26px;">Copiar</button>
+              </div>
+              <pre id="code-js-base" class="structure-json" style="max-height: 220px; font-size: 11px;">Gere o HTML/CSS determinístico primeiro.</pre>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h3 style="font-size: 13px; font-weight: bold; text-transform: uppercase; color: var(--accent); margin:0;">Código Candidato (IA/MCP)</h3>
+                <button type="button" class="copy-button secondary" data-target="code-ia-candidate" title="Copiar código completo" style="font-size:11px; padding:2px 10px; min-height:26px;">Copiar</button>
+              </div>
+              <pre id="code-ia-candidate" class="structure-json" style="max-height: 220px; font-size: 11px; border: 1px dashed var(--accent);">Aguardando execução do Agent Runner...</pre>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px;">
+            <div class="section-heading">
+              <div>
+                <h2 style="font-size: 18px; color: var(--text); display: flex; align-items: center; gap: 8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 8v4M12 16h.01"></path></svg>
+                  Merge Híbrido & Validação Estrutural (RF11.2)
+                </h2>
+                <p class="preview-status" style="margin-top: 4px;">Consolide a árvore lógica do JS com a folha de estilo premium gerada pela IA.</p>
+              </div>
+              <button id="run-merge-button" type="button" class="secondary" style="border: 1px solid var(--border); min-height: 40px;" disabled>Mesclar Código (Merge Híbrido)</button>
+            </div>
+
+            <div id="merge-logs-container" style="display: none; margin-top: 12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: var(--muted); margin:0;">Relatório de Merge &amp; Patches (RF11.2)</h3>
+                <button type="button" class="copy-button secondary" data-target="merge-validation-logs" title="Copiar relatório completo" style="font-size:11px; padding:2px 10px; min-height:26px;">Copiar</button>
+              </div>
+              <pre id="merge-validation-logs" class="structure-json" style="background: #0f172a; max-height: 280px; font-size: 11px; color: #38bdf8; border-left: 4px solid #38bdf8; padding: 12px; white-space: pre-wrap;">Aguardando mesclagem...</pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="structure-panel" aria-labelledby="export-title" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+          <div class="section-heading">
+            <div>
+              <h2 id="export-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                Exportação do Projeto (RF12)
+              </h2>
+              <p class="preview-status" style="margin-top: 4px;">Disponibilize o código consolidado e validado em ZIP ou repositório Git local.</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button id="export-zip-button" type="button" class="primary" style="min-height: 40px; background: var(--accent);" disabled>Baixar ZIP (RF12.1)</button>
+              <button id="export-git-button" type="button" class="secondary" style="min-height: 40px; border: 1px solid var(--border);" disabled>Git Local (RF12.2)</button>
+              <button type="button" class="secondary" style="min-height: 40px; border: 1px solid var(--border); opacity: 0.5;" disabled title="Evolução Futura">GitHub</button>
+            </div>
+          </div>
+          <div id="export-feedback" class="feedback" style="font-weight: bold; margin-top: 8px;"></div>
         </section>
 
         <section class="structure-panel preview-panel" aria-labelledby="preview-title">
@@ -138,6 +193,7 @@
             <div>
               <h2 id="preview-title">Preview</h2>
               <p id="preview-status" class="preview-status">Gere HTML refinado e CSS para visualizar.</p>
+              <p id="preview-version-info" class="preview-status">Versão ativa: nenhuma.</p>
             </div>
              <div class="preview-actions" role="group" aria-label="Modo de preview" style="display: flex; gap: 8px; align-items: center;">
                <div style="display: flex; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px; background: var(--surface-strong);">
@@ -159,6 +215,10 @@
                   Mobile
                 </button>
                 <span style="border-left: 1px solid var(--border); height: 20px; margin: 0 4px;"></span>
+                <button type="button" id="preview-reload-button" class="secondary" style="min-height: 32px; padding: 0 10px; font-size: 13px; font-weight: bold; border-radius: 6px;" title="Forçar recarregamento da versão ativa no preview">
+                  Recarregar preview
+                </button>
+                <span style="border-left: 1px solid var(--border); height: 20px; margin: 0 4px;"></span>
                 <button type="button" id="preview-new-tab-button" class="primary" style="min-height: 32px; padding: 0 10px; font-size: 13px; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 6px;" title="Abrir preview em tela cheia numa nova aba">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -169,15 +229,35 @@
                 </button>
              </div>
            </div>
-           <div id="preview-frame-shell" class="preview-frame-shell preview-frame-shell--desktop" style="position: relative; overflow: auto; display: flex; align-items: flex-start; justify-content: flex-start; min-height: 660px; padding: 10px;">
-             <div id="preview-wrapper" style="position: relative; transition: all 0.2s ease; transform-origin: top left;">
-               <iframe
-                 id="result-preview"
-                 class="result-preview"
-                 title="Preview do resultado gerado"
-                 sandbox=""
-                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
-               ></iframe>
+           <div id="preview-frame-shell" class="preview-frame-shell preview-frame-shell--desktop" style="position: relative; overflow: auto; min-height: 660px; padding: 10px; display: block; width: 100%;">
+             <div id="preview-split-container" style="display: flex; gap: 16px; width: 100%; transition: all 0.2s ease;">
+
+               <div id="preview-js-box" style="flex: 1; transition: all 0.2s ease;">
+                 <h4 id="preview-js-title" style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: var(--muted); margin: 0 0 8px 0; display: none;">Preview JS Determinístico</h4>
+                 <div id="preview-wrapper-js" style="position: relative; width: 100%; height: 600px; transition: all 0.2s ease; transform-origin: top left;">
+                   <iframe
+                     id="result-preview"
+                     class="result-preview"
+                     title="Preview do resultado gerado"
+                     sandbox="allow-scripts allow-same-origin"
+                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 1px solid var(--border); border-radius: 6px; background: white;"
+                   ></iframe>
+                 </div>
+               </div>
+
+               <div id="preview-ia-box" style="flex: 1; transition: all 0.2s ease; display: none;">
+                 <h4 style="font-size: 11px; font-weight: bold; text-transform: uppercase; color: var(--accent); margin: 0 0 8px 0;">Preview Candidato IA/MCP</h4>
+                 <div id="preview-wrapper-ia" style="position: relative; width: 100%; height: 600px; transition: all 0.2s ease; transform-origin: top left;">
+                   <iframe
+                     id="candidate-preview"
+                     class="result-preview"
+                     title="Preview da versão candidata IA/MCP"
+                     sandbox="allow-scripts allow-same-origin"
+                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 2px dashed var(--accent); border-radius: 6px; background: white;"
+                   ></iframe>
+                 </div>
+               </div>
+
              </div>
            </div>
         </section>

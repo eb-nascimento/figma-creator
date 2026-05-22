@@ -105,8 +105,11 @@ test("generates responsive CSS for tables, cards and forms", () => {
   assert.match(css, /@media \(max-width: 480px\)/);
   assert.match(css, /\.dashboard \{\n[\s\S]*display: flex;/);
   assert.doesNotMatch(css, /\.screen/);
+  assert.match(css, /:where\(body \*\) \{\n[\s\S]*max-width: 100%;\n[\s\S]*max-height: 100%;/);
+  assert.match(css, /:where\(body \*\) \{\n[\s\S]*overflow-wrap: anywhere;/);
   assert.match(css, /\.table-wrapper \{\n[\s\S]*overflow-x: auto;/);
-  assert.match(css, /\.table \{\n[\s\S]*min-width: 640px;/);
+  assert.match(css, /\.table \{\n[\s\S]*min-width: 0;/);
+  assert.doesNotMatch(css, /\.table \{\n[\s\S]*width: max-content;/);
   assert.match(css, /\.valores \{\n[\s\S]*grid-template-columns: 1fr;/);
   assert.match(css, /\.campos \{\n[\s\S]*grid-template-columns: 1fr;/);
   assert.match(css, /\.form-control \{\n[\s\S]*width: 100%;/);
@@ -132,13 +135,13 @@ test("generates responsive sidebar rules only when sidebar exists", () => {
     ],
   });
 
-  assert.match(css, /\.dashboard:has\(> \.sidebar\) \{\n[\s\S]*flex-direction: row;/);
+  assert.doesNotMatch(css, /\.dashboard:has\(> \.sidebar\) \{/);
   assert.match(css, /\.dashboard > :not\(\.sidebar\) \{\n[\s\S]*min-width: 0;/);
   assert.match(css, /\.sidebar \{\n[\s\S]*width: 96px;/);
   assert.match(css, /@media \(max-width: 768px\)/);
-  assert.match(css, /\.dashboard:has\(> \.sidebar\) \{\n[\s\S]*flex-direction: column;/);
+  assert.doesNotMatch(css, /flex-direction: row !important/);
+  assert.doesNotMatch(css, /flex-direction: column !important/);
   assert.match(css, /\.sidebar \{\n[\s\S]*width: 100%;/);
-  assert.match(css, /\.sidebar-nav \{\n[\s\S]*overflow-x: auto;/);
   assert.doesNotMatch(css, /\.screen/);
 });
 
@@ -160,6 +163,10 @@ test("uses Figma visual data instead of generic component styling", () => {
         type: "text",
         figmaType: "TEXT",
         layout: { x: 80, y: 120, width: 280, height: 48 },
+        style: {
+          strokes: [{ type: "SOLID", color: { r: 255, g: 255, b: 255, a: 1 } }],
+          strokeWeight: 1,
+        },
         text: {
           characters: "Dashboard",
           fontSize: 32,
@@ -200,6 +207,8 @@ test("uses Figma visual data instead of generic component styling", () => {
   assert.match(css, /\.title \{\n[\s\S]*font-size: clamp\(19px, 1\.667vw, 32px\);/);
   assert.match(css, /\.title \{\n[\s\S]*font-weight: 700;/);
   assert.match(css, /\.title \{\n[\s\S]*color: #121826;/);
+  assert.match(css, /\.title \{\n[\s\S]*-webkit-text-stroke: 1px var\(--color-surface\);/);
+  assert.doesNotMatch(css, /\.title \{\n[\s\S]*border: 1px solid #FFFFFF;/);
   assert.match(css, /\.card \{\n[\s\S]*width: 320px;/);
   assert.match(css, /\.card \{\n[\s\S]*border-radius: 12px;/);
   assert.match(css, /\.card \{\n[\s\S]*box-shadow: 0px 8px 24px 0px rgba\(0, 0, 0, 0\.18\);/);

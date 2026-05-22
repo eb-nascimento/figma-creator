@@ -8,9 +8,8 @@ class AiImprovementContextError extends Error {
   }
 }
 
-function normalizeMode(mode) {
-  const allowedModes = new Set(["visual-first", "responsive", "semantico", "semantic"]);
-  return allowedModes.has(mode) ? mode : "visual-first";
+function normalizeMode() {
+  return "responsive";
 }
 
 function normalizeFigmaLink(rawLink) {
@@ -92,9 +91,7 @@ function buildAiImprovementContext(input = {}) {
     "Revise e melhore o HTML/CSS gerado a partir do Figma.",
     "Preserve a estrutura base, data-figma-id, rastreabilidade e o modo ativo.",
     "Nao substitua a arvore extraida, a normalizacao ou a geracao base.",
-    mode === "visual-first"
-      ? "Modo visual-first: priorize fidelidade visual ao Figma; tamanhos fixos do Figma podem ser usados como apoio inicial."
-      : `Modo ${mode}: preserve o objetivo do modo ativo.`,
+    "Modo responsive: entregue uma tela web bonita e legivel em fluxo responsivo; use o Figma como referencia visual sem forcar geometria fixa quando ela piorar o resultado.",
     mcp
       ? mcp.instruction
       : "MCP indisponivel ou nao informado: use HTML, CSS, arvore extraida, arvore normalizada e logs como contexto.",
@@ -114,6 +111,8 @@ function buildAiImprovementContext(input = {}) {
       "Nao inventar componentes que nao existam no Figma.",
       "Nao trocar o layout principal sem solicitacao.",
       "Nao apagar regras funcionais sem justificativa.",
+      "Nenhum elemento deve exceder o parent no layout responsivo.",
+      "Nao inverter flex-direction row/column extraida para adaptar breakpoint.",
       "Manter HTML e CSS sincronizados.",
     ],
     context: {

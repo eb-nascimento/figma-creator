@@ -16,6 +16,7 @@ const { normalizeVisualTree } = require("../services/figmaVisualTree");
 const { extractFigmaFileKey } = require("../services/figmaUrl");
 const { SESSION_COOKIE_NAME, getSession } = require("../services/sessionStore");
 const { getValidAccessToken } = require("../services/figmaOAuth");
+const { DEBUG_LOG_FILE, appendDebugLog } = require("../services/debugLogger");
 
 async function getAuthorizedFigmaFile(requestBody, requestContext = {}) {
   const fileKey = extractFigmaFileKey(requestBody.url);
@@ -49,11 +50,18 @@ async function handleFigmaImport(requestBody, requestContext = {}) {
     requestBody,
     requestContext
   );
+  const frames = await getFramesWithThumbnails(fileKey, accessToken, figmaFile);
+  appendDebugLog("figma.import", {
+    fileKey,
+    frameCount: frames.length,
+    frames,
+  });
 
   return {
     file_key: fileKey,
     figmaFile,
-    frames: await getFramesWithThumbnails(fileKey, accessToken, figmaFile),
+    frames,
+    debugLog: DEBUG_LOG_FILE,
   };
 }
 
@@ -62,10 +70,17 @@ async function handleFigmaFrames(requestBody, requestContext = {}) {
     requestBody,
     requestContext
   );
+  const frames = await getFramesWithThumbnails(fileKey, accessToken, figmaFile);
+  appendDebugLog("figma.frames", {
+    fileKey,
+    frameCount: frames.length,
+    frames,
+  });
 
   return {
     file_key: fileKey,
-    frames: await getFramesWithThumbnails(fileKey, accessToken, figmaFile),
+    frames,
+    debugLog: DEBUG_LOG_FILE,
   };
 }
 
@@ -96,10 +111,15 @@ async function handleFigmaFrameSelection(requestBody, requestContext = {}) {
     frame: selectedFrame,
     selectedAt: Date.now(),
   };
+  appendDebugLog("figma.frame.selection", {
+    fileKey,
+    frame: selectedFrame,
+  });
 
   return {
     file_key: fileKey,
     frame: selectedFrame,
+    debugLog: DEBUG_LOG_FILE,
   };
 }
 
@@ -135,11 +155,21 @@ async function handleFigmaFrameStructure(requestBody, requestContext = {}) {
     throw error;
   }
 
+  const summary = summarizeStructure(structure);
+  appendDebugLog("figma.frame.structure", {
+    fileKey,
+    frame: selectedFrame,
+    summary,
+    figmaNode,
+    structure,
+  });
+
   return {
     file_key: fileKey,
     frame: selectedFrame,
     structure,
-    summary: summarizeStructure(structure),
+    summary,
+    debugLog: DEBUG_LOG_FILE,
   };
 }
 
