@@ -1,0 +1,10 @@
+- atualizar SDD-origin.md e SDD-dev.md;
+- não remover requisitos anteriores;
+- manter histórico funcional;
+- alterar apenas o necessário;
+- responder com resumo curto.
+- Não remover funcionalidades existentes sem solicitação explícita.
+- Não editar arquivos fora do escopo da tarefa.
+- Explicar alterações realizadas em resumo curto.
+- Priorizar alterações pequenas, seguras e testáveis.
+- Preservar padrões arquiteturais do projeto.
